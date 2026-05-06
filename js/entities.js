@@ -9,6 +9,14 @@ export const TILE_GATE_RED = 4;
 export const TILE_LASER = 5;
 export const TILE_BUTTON = 6;
 export const TILE_EXIT = 7;
+export const TILE_ROLLER_LEFT = 8;
+export const TILE_ROLLER_UP = 9;
+export const TILE_ROLLER_DOWN = 10;
+export const TILE_ICE = 11;
+export const TILE_WARP_A = 12;
+export const TILE_WARP_B = 13;
+export const TILE_FRAGILE = 14;
+export const TILE_HOLE = 15;
 
 export class GridMap {
     constructor(levelData) {
@@ -30,17 +38,36 @@ export class GridMap {
                     case 'W': row.push(TILE_WALL); break;
                     case '.': row.push(TILE_EMPTY); break;
                     case 'R>': row.push(TILE_ROLLER_RIGHT); break;
+                    case 'R<': row.push(TILE_ROLLER_LEFT); break;
+                    case 'R^': row.push(TILE_ROLLER_UP); break;
+                    case 'Rv': row.push(TILE_ROLLER_DOWN); break;
                     case 'K_R': row.push(TILE_KEY_RED); break;
                     case 'G_R': row.push(TILE_GATE_RED); break;
                     case 'L': row.push(TILE_LASER); break;
                     case 'B': row.push(TILE_BUTTON); break;
                     case 'E': row.push(TILE_EXIT); break;
+                    case 'I': row.push(TILE_ICE); break;
+                    case 'WA': row.push(TILE_WARP_A); break;
+                    case 'WB': row.push(TILE_WARP_B); break;
+                    case 'F': row.push(TILE_FRAGILE); break;
+                    case 'H': row.push(TILE_HOLE); break;
                     default: row.push(TILE_EMPTY); break;
                 }
             }
             parsedMap.push(row);
         }
         return parsedMap;
+    }
+
+    findTile(type) {
+        for (let y = 0; y < this.rows; y++) {
+            for (let x = 0; x < this.cols; x++) {
+                if (this.grid[y][x] === type) {
+                    return {x, y};
+                }
+            }
+        }
+        return null;
     }
 
     reset() {
@@ -64,7 +91,7 @@ export class GridMap {
 
     isWalkable(x, y) {
         const tile = this.getTile(x, y);
-        if (tile === TILE_WALL) return false;
+        if (tile === TILE_WALL || tile === TILE_HOLE) return false;
         if (tile === TILE_GATE_RED && !this.redGatesOpen) return false;
         if (tile === TILE_LASER && !this.buttonPressed) return false;
         return true;
@@ -125,14 +152,20 @@ export class GridMap {
                     // Highlight edge
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
                     ctx.fillRect(px, py, TILE_SIZE, 2);
-                } else if (tile === TILE_ROLLER_RIGHT) {
+                } else if (tile === TILE_ROLLER_RIGHT || tile === TILE_ROLLER_LEFT || tile === TILE_ROLLER_UP || tile === TILE_ROLLER_DOWN) {
                     ctx.fillStyle = '#222233';
                     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                     ctx.fillStyle = '#4444aa';
                     ctx.beginPath();
-                    ctx.moveTo(px + 10, py + 15);
-                    ctx.lineTo(px + 35, py + 25);
-                    ctx.lineTo(px + 10, py + 35);
+                    if (tile === TILE_ROLLER_RIGHT) {
+                        ctx.moveTo(px + 10, py + 15); ctx.lineTo(px + 35, py + 25); ctx.lineTo(px + 10, py + 35);
+                    } else if (tile === TILE_ROLLER_LEFT) {
+                        ctx.moveTo(px + 40, py + 15); ctx.lineTo(px + 15, py + 25); ctx.lineTo(px + 40, py + 35);
+                    } else if (tile === TILE_ROLLER_UP) {
+                        ctx.moveTo(px + 15, py + 40); ctx.lineTo(px + 25, py + 15); ctx.lineTo(px + 35, py + 40);
+                    } else if (tile === TILE_ROLLER_DOWN) {
+                        ctx.moveTo(px + 15, py + 10); ctx.lineTo(px + 25, py + 35); ctx.lineTo(px + 35, py + 10);
+                    }
                     ctx.fill();
                 } else if (tile === TILE_KEY_RED) {
                     ctx.shadowColor = '#ff2222';
@@ -189,6 +222,45 @@ export class GridMap {
                     ctx.lineWidth = 2;
                     ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
                     ctx.lineWidth = 1;
+                } else if (tile === TILE_ICE) {
+                    ctx.fillStyle = '#88ccff';
+                    ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.beginPath();
+                    ctx.moveTo(px + 10, py + 10);
+                    ctx.lineTo(px + 25, py + 10);
+                    ctx.lineTo(px + 10, py + 25);
+                    ctx.fill();
+                } else if (tile === TILE_WARP_A || tile === TILE_WARP_B) {
+                    const color = tile === TILE_WARP_A ? '#aa00ff' : '#ff00aa';
+                    const time = Date.now() / 500;
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 15;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+
+                    for(let r = 5; r <= 20; r+= 7) {
+                        ctx.beginPath();
+                        ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, r + Math.sin(time + r)*2, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    ctx.lineWidth = 1;
+                } else if (tile === TILE_FRAGILE) {
+                    ctx.fillStyle = '#3a3a2a';
+                    ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                    ctx.strokeStyle = '#555544';
+                    ctx.beginPath();
+                    ctx.moveTo(px + 10, py + 10); ctx.lineTo(px + 40, py + 40);
+                    ctx.moveTo(px + 40, py + 10); ctx.lineTo(px + 10, py + 40);
+                    ctx.stroke();
+                } else if (tile === TILE_HOLE) {
+                    ctx.fillStyle = '#050505';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetY = 0;
+                    ctx.strokeStyle = '#111';
+                    ctx.strokeRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
                 }
 
                 // Clear shadows before next tile

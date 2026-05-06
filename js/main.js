@@ -1,4 +1,4 @@
-import { GridMap, Robot, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_EXIT, TILE_SIZE } from './entities.js';
+import { GridMap, Robot, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT, TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_EXIT, TILE_ICE, TILE_WARP_A, TILE_WARP_B, TILE_FRAGILE, TILE_HOLE, TILE_SIZE } from './entities.js';
 import { LEVELS } from './levels.js';
 
 class Game {
@@ -58,7 +58,9 @@ class Game {
     }
 
     updateQueueDisplay() {
-        document.getElementById('queue-display').innerText = this.commandQueue.join(' -> ') || 'Queue is empty';
+        // Filter out internal movement commands so the user doesn't see "SLIDE" or "FORCE_MOVE"
+        const displayQueue = this.commandQueue.filter(cmd => !cmd.startsWith('SYS_'));
+        document.getElementById('queue-display').innerText = displayQueue.join(' -> ') || 'Queue is empty';
     }
 
     resetLevel() {
@@ -93,20 +95,31 @@ class Game {
         const dx = [1, 0, -1, 0];
         const dy = [0, 1, 0, -1];
 
-        if (cmd === 'MOVE_FORWARD') {
+        // Fragile Floor handling: if robot moves off a fragile tile, collapse it
+        const currentTileType = this.gridMap.getTile(tx, ty);
+
+        if (cmd === 'MOVE_FORWARD' || cmd === 'SYS_SLIDE_FORWARD') {
             const nx = tx + dx[tdir];
             const ny = ty + dy[tdir];
             if (this.gridMap.isWalkable(nx, ny)) {
                 tx = nx;
                 ty = ny;
             }
-        } else if (cmd === 'MOVE_BACKWARD') {
+        } else if (cmd === 'MOVE_BACKWARD' || cmd === 'SYS_SLIDE_BACKWARD') {
             const nx = tx - dx[tdir];
             const ny = ty - dy[tdir];
             if (this.gridMap.isWalkable(nx, ny)) {
                 tx = nx;
                 ty = ny;
             }
+        } else if (cmd === 'SYS_FORCE_E') {
+            if (this.gridMap.isWalkable(tx + 1, ty)) { tx += 1; }
+        } else if (cmd === 'SYS_FORCE_S') {
+            if (this.gridMap.isWalkable(tx, ty + 1)) { ty += 1; }
+        } else if (cmd === 'SYS_FORCE_W') {
+            if (this.gridMap.isWalkable(tx - 1, ty)) { tx -= 1; }
+        } else if (cmd === 'SYS_FORCE_N') {
+            if (this.gridMap.isWalkable(tx, ty - 1)) { ty -= 1; }
         } else if (cmd === 'TURN_RIGHT') {
             tdir = (tdir + 1) % 4;
         } else if (cmd === 'TURN_LEFT') {
@@ -116,35 +129,87 @@ class Game {
             this.updateMapInteractions(tx, ty); // Check button toggle
         }
 
+        const moved = (tx !== this.robot.x || ty !== this.robot.y);
+
+        // Collapse fragile tile if we moved off it
+        if (moved && currentTileType === TILE_FRAGILE) {
+            this.gridMap.setTile(this.robot.x, this.robot.y, TILE_HOLE);
+        }
+
         this.robot.setTarget(tx, ty, tdir);
 
         // After setting target, if moved, check for interactions
-        if (tx !== this.robot.x || ty !== this.robot.y) {
+        if (moved) {
             this.gridMap.interact(tx, ty);
         }
+
+        // Check new tile state
+        const newTileType = this.gridMap.getTile(tx, ty);
 
         // Handle Level Exit
         if (cmd === 'NEXT_LEVEL') {
             this.loadLevel(this.currentLevelIndex + 1);
             return;
-        } else if (this.gridMap.getTile(tx, ty) === TILE_EXIT && !this.commandQueue.includes('NEXT_LEVEL')) {
+        } else if (newTileType === TILE_EXIT && !this.commandQueue.includes('NEXT_LEVEL')) {
             // Queue up a level transition and clear the rest
             this.commandQueue = ['NEXT_LEVEL'];
         }
 
-        // Handle Roller
-        if (cmd === 'ROLLER_MOVE_RIGHT') {
-            if (this.gridMap.isWalkable(tx + 1, ty)) {
-                 tx = tx + 1;
-                 this.robot.setTarget(tx, ty, tdir);
-                 this.gridMap.interact(tx, ty);
-                 if (this.gridMap.getTile(tx, ty) === TILE_ROLLER_RIGHT) {
-                     this.commandQueue.unshift('ROLLER_MOVE_RIGHT');
-                 }
+        // Handle Warp (Teleporters)
+        if (newTileType === TILE_WARP_A && moved) {
+            const warpB = this.gridMap.findTile(TILE_WARP_B);
+            if (warpB) {
+                // Instant teleport setup
+                this.robot.visualX = warpB.x;
+                this.robot.visualY = warpB.y;
+                this.robot.x = warpB.x;
+                this.robot.y = warpB.y;
+                tx = warpB.x;
+                ty = warpB.y;
+                this.robot.setTarget(tx, ty, tdir);
+                // force visual immediate jump
+                this.robot.finishAnimation();
             }
-        } else if (this.gridMap.getTile(tx, ty) === TILE_ROLLER_RIGHT) {
-            // Queue an automatic move right
-            this.commandQueue.unshift('ROLLER_MOVE_RIGHT');
+        } else if (newTileType === TILE_WARP_B && moved) {
+            const warpA = this.gridMap.findTile(TILE_WARP_A);
+            if (warpA) {
+                this.robot.visualX = warpA.x;
+                this.robot.visualY = warpA.y;
+                this.robot.x = warpA.x;
+                this.robot.y = warpA.y;
+                tx = warpA.x;
+                ty = warpA.y;
+                this.robot.setTarget(tx, ty, tdir);
+                this.robot.finishAnimation();
+            }
+        }
+
+        // Evaluate next environment forces
+        const finalTileType = this.gridMap.getTile(tx, ty);
+
+        // Ice logic
+        if (finalTileType === TILE_ICE) {
+            // If we just moved forward or are sliding forward, continue sliding forward
+            if (cmd === 'MOVE_FORWARD' || cmd === 'SYS_SLIDE_FORWARD') {
+                if (this.gridMap.isWalkable(tx + dx[tdir], ty + dy[tdir])) {
+                    this.commandQueue.unshift('SYS_SLIDE_FORWARD');
+                }
+            } else if (cmd === 'MOVE_BACKWARD' || cmd === 'SYS_SLIDE_BACKWARD') {
+                if (this.gridMap.isWalkable(tx - dx[tdir], ty - dy[tdir])) {
+                    this.commandQueue.unshift('SYS_SLIDE_BACKWARD');
+                }
+            }
+        }
+
+        // Roller logic
+        if (finalTileType === TILE_ROLLER_RIGHT) {
+            if (this.gridMap.isWalkable(tx + 1, ty)) this.commandQueue.unshift('SYS_FORCE_E');
+        } else if (finalTileType === TILE_ROLLER_DOWN) {
+            if (this.gridMap.isWalkable(tx, ty + 1)) this.commandQueue.unshift('SYS_FORCE_S');
+        } else if (finalTileType === TILE_ROLLER_LEFT) {
+            if (this.gridMap.isWalkable(tx - 1, ty)) this.commandQueue.unshift('SYS_FORCE_W');
+        } else if (finalTileType === TILE_ROLLER_UP) {
+            if (this.gridMap.isWalkable(tx, ty - 1)) this.commandQueue.unshift('SYS_FORCE_N');
         }
 
         this.updateMapInteractions(tx, ty);
