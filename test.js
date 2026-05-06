@@ -3,13 +3,17 @@ import { GridMap, Robot, TILE_WALL, TILE_KEY_RED, TILE_GATE_RED, TILE_EMPTY } fr
 
 console.log("Starting tests...");
 
-const mapData = [
-    [1, 1, 1, 1, 1],
-    [1, 0, 3, 4, 1],
-    [1, 1, 1, 1, 1]
-];
+const levelData = {
+    width: 5,
+    height: 3,
+    layout: [
+        ['W', 'W', 'W', 'W', 'W'],
+        ['W', '.', 'K_R', 'G_R', 'W'],
+        ['W', 'W', 'W', 'W', 'W']
+    ]
+};
 
-const gridMap = new GridMap(mapData);
+const gridMap = new GridMap(levelData);
 const robot = new Robot(1, 1, 0); // At (1,1) facing East (0)
 
 // Initial state check
