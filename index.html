@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voddkin Labs - Greybox</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui-container">
+            <h3>Command Queue</h3>
+            <div id="controls">
+                <button onclick="addCommand('MOVE_FORWARD')">Move Forward</button>
+                <button onclick="addCommand('MOVE_BACKWARD')">Move Backward</button>
+                <button onclick="addCommand('TURN_LEFT')">Turn Left</button>
+                <button onclick="addCommand('TURN_RIGHT')">Turn Right</button>
+                <button onclick="addCommand('ACTIVATE_EMP')">Toggle EMP</button>
+            </div>
+            <div id="queue-display"></div>
+            <div style="margin-top: 10px;">
+                <button onclick="executeQueue()" id="btn-execute">Execute Queue</button>
+                <button onclick="clearQueue()" id="btn-clear">Clear Queue</button>
+                <button onclick="resetLevel()" id="btn-reset">Reset Level</button>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
