@@ -8,16 +8,39 @@ export const TILE_KEY_RED = 3;
 export const TILE_GATE_RED = 4;
 export const TILE_LASER = 5;
 export const TILE_BUTTON = 6;
+export const TILE_EXIT = 7;
 
 export class GridMap {
-    constructor(gridData) {
-        // deep copy to allow resets
-        this.initialGridData = JSON.parse(JSON.stringify(gridData));
-        this.grid = JSON.parse(JSON.stringify(gridData));
-        this.rows = this.grid.length;
-        this.cols = this.grid[0].length;
+    constructor(levelData) {
+        this.cols = levelData.width;
+        this.rows = levelData.height;
+        this.initialGridData = this.parseLayout(levelData.layout);
+        this.grid = JSON.parse(JSON.stringify(this.initialGridData));
         this.redGatesOpen = false;
         this.buttonPressed = false;
+    }
+
+    parseLayout(layout) {
+        const parsedMap = [];
+        for (let y = 0; y < layout.length; y++) {
+            const row = [];
+            for (let x = 0; x < layout[y].length; x++) {
+                const char = layout[y][x];
+                switch(char) {
+                    case 'W': row.push(TILE_WALL); break;
+                    case '.': row.push(TILE_EMPTY); break;
+                    case 'R>': row.push(TILE_ROLLER_RIGHT); break;
+                    case 'K_R': row.push(TILE_KEY_RED); break;
+                    case 'G_R': row.push(TILE_GATE_RED); break;
+                    case 'L': row.push(TILE_LASER); break;
+                    case 'B': row.push(TILE_BUTTON); break;
+                    case 'E': row.push(TILE_EXIT); break;
+                    default: row.push(TILE_EMPTY); break;
+                }
+            }
+            parsedMap.push(row);
+        }
+        return parsedMap;
     }
 
     reset() {
@@ -106,6 +129,14 @@ export class GridMap {
                     ctx.beginPath();
                     ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 15, 0, Math.PI * 2);
                     ctx.fill();
+                } else if (tile === TILE_EXIT) {
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = '#005500';
+                    ctx.font = '20px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('EXIT', px + TILE_SIZE / 2, py + TILE_SIZE / 2);
                 }
             }
         }

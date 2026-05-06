@@ -1,32 +1,15 @@
-import { GridMap, Robot, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_SIZE } from './entities.js';
+import { GridMap, Robot, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_EXIT, TILE_SIZE } from './entities.js';
+import { LEVELS } from './levels.js';
 
 class Game {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
 
-        // 0=Empty, 1=Wall, 2=Roller(R), 3=Key(Red), 4=Gate(Red), 5=Laser, 6=Button
-        const testMapData = [
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 4, 1, 0, 1],
-            [1, 0, 1, 0, 1, 0, 1, 3, 0, 0, 0, 1, 0, 1, 0, 1],
-            [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-            [1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
-            [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 6, 0, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        ];
-
-        this.gridMap = new GridMap(testMapData);
-        this.robot = new Robot(1, 1, 0); // Start at (1,1) facing East(0)
+        this.currentLevelIndex = 0;
 
         this.commandQueue = [];
         this.isExecuting = false;
-
         this.lastTime = 0;
 
         // Command delay configuration
@@ -39,8 +22,27 @@ class Game {
         window.clearQueue = this.clearQueue.bind(this);
         window.resetLevel = this.resetLevel.bind(this);
 
+        this.loadLevel(this.currentLevelIndex);
         this.updateQueueDisplay();
         requestAnimationFrame(this.gameLoop.bind(this));
+    }
+
+    loadLevel(index) {
+        if (index >= LEVELS.length) {
+            alert("Congratulations! You have completed all levels.");
+            return;
+        }
+
+        this.currentLevelIndex = index;
+        const levelData = LEVELS[index];
+
+        document.getElementById('level-name').innerText = levelData.name;
+
+        this.gridMap = new GridMap(levelData);
+        this.robot = new Robot(levelData.robotStart.x, levelData.robotStart.y, levelData.robotStart.dir);
+
+        this.clearQueue();
+        this.isExecuting = false;
     }
 
     addCommand(cmd) {
@@ -119,6 +121,15 @@ class Game {
         // After setting target, if moved, check for interactions
         if (tx !== this.robot.x || ty !== this.robot.y) {
             this.gridMap.interact(tx, ty);
+        }
+
+        // Handle Level Exit
+        if (cmd === 'NEXT_LEVEL') {
+            this.loadLevel(this.currentLevelIndex + 1);
+            return;
+        } else if (this.gridMap.getTile(tx, ty) === TILE_EXIT && !this.commandQueue.includes('NEXT_LEVEL')) {
+            // Queue up a level transition and clear the rest
+            this.commandQueue = ['NEXT_LEVEL'];
         }
 
         // Handle Roller
