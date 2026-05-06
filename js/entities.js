@@ -87,57 +87,114 @@ export class GridMap {
                 const px = x * TILE_SIZE;
                 const py = y * TILE_SIZE;
 
-                // Draw base floor
-                ctx.fillStyle = '#2a2a2a';
+                // --- Draw base floor (Cyber-Minimalist) ---
+                ctx.fillStyle = '#1e1e1e';
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                ctx.strokeStyle = '#444';
+
+                // Subtle technological grid strokes
+                ctx.strokeStyle = '#2a2a2a';
+                ctx.lineWidth = 1;
                 ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
 
+                // Small chamfered corners for grid lines
+                ctx.fillStyle = '#2a2a2a';
+                const chamferSize = 4;
+                ctx.beginPath();
+                ctx.moveTo(px, py + chamferSize);
+                ctx.lineTo(px + chamferSize, py);
+                ctx.stroke();
+
+                // Reset shadow defaults
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+
                 if (tile === TILE_WALL) {
-                    ctx.fillStyle = '#666';
+                    // Drop shadow for depth
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowOffsetY = 4;
+
+                    // Gradient block
+                    const gradient = ctx.createLinearGradient(px, py, px, py + TILE_SIZE);
+                    gradient.addColorStop(0, '#555555');
+                    gradient.addColorStop(1, '#333333');
+                    ctx.fillStyle = gradient;
                     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+                    // Highlight edge
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.fillRect(px, py, TILE_SIZE, 2);
                 } else if (tile === TILE_ROLLER_RIGHT) {
-                    ctx.fillStyle = '#3a3a5a';
+                    ctx.fillStyle = '#222233';
                     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#88f';
+                    ctx.fillStyle = '#4444aa';
                     ctx.beginPath();
-                    ctx.moveTo(px + 10, py + 10);
-                    ctx.lineTo(px + 40, py + 25);
-                    ctx.lineTo(px + 10, py + 40);
+                    ctx.moveTo(px + 10, py + 15);
+                    ctx.lineTo(px + 35, py + 25);
+                    ctx.lineTo(px + 10, py + 35);
                     ctx.fill();
                 } else if (tile === TILE_KEY_RED) {
-                    ctx.fillStyle = '#ffcc00';
+                    ctx.shadowColor = '#ff2222';
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = '#ff4444';
                     ctx.beginPath();
-                    ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 10, 0, Math.PI * 2);
+                    ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(px + TILE_SIZE / 2 - 2, py + TILE_SIZE / 2 - 2, 2, 0, Math.PI * 2);
                     ctx.fill();
                 } else if (tile === TILE_GATE_RED) {
-                    ctx.fillStyle = this.redGatesOpen ? '#442222' : '#ff4444';
+                    ctx.fillStyle = this.redGatesOpen ? '#2a1111' : '#ff2222';
                     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                     if (!this.redGatesOpen) {
-                        ctx.strokeStyle = '#aa0000';
+                        ctx.strokeStyle = '#550000';
                         ctx.lineWidth = 4;
                         ctx.strokeRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
                         ctx.lineWidth = 1;
                     }
                 } else if (tile === TILE_LASER) {
                     if (!this.buttonPressed) {
-                        ctx.fillStyle = '#ff00ff';
-                        ctx.fillRect(px + TILE_SIZE / 2 - 2, py, 4, TILE_SIZE);
+                        // Neon Glow
+                        ctx.shadowColor = '#ff0055';
+                        ctx.shadowBlur = 15;
+                        ctx.fillStyle = '#ff0055';
+                        ctx.fillRect(px + TILE_SIZE / 2 - 3, py, 6, TILE_SIZE);
+
+                        // White Core
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(px + TILE_SIZE / 2 - 1, py, 2, TILE_SIZE);
                     }
                 } else if (tile === TILE_BUTTON) {
-                    ctx.fillStyle = this.buttonPressed ? '#55ff55' : '#115511';
+                    const btnColor = this.buttonPressed ? '#00ffaa' : '#225544';
+                    ctx.shadowColor = this.buttonPressed ? '#00ffaa' : 'transparent';
+                    ctx.shadowBlur = this.buttonPressed ? 15 : 0;
+                    ctx.fillStyle = btnColor;
                     ctx.beginPath();
-                    ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 15, 0, Math.PI * 2);
+                    ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, 12, 0, Math.PI * 2);
                     ctx.fill();
+
+                    // inner rim
+                    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
                 } else if (tile === TILE_EXIT) {
-                    ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#005500';
-                    ctx.font = '20px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('EXIT', px + TILE_SIZE / 2, py + TILE_SIZE / 2);
+                    ctx.shadowColor = '#00ffaa';
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = '#003322';
+                    ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                    ctx.strokeStyle = '#00ffaa';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                    ctx.lineWidth = 1;
                 }
+
+                // Clear shadows before next tile
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
             }
         }
     }
@@ -231,23 +288,61 @@ export class Robot {
         const rotation = this.visualDir * Math.PI / 2;
 
         if (this.empActive) {
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+            const pulse = (Math.sin(Date.now() / 150) + 1) / 2; // 0 to 1
+            const pulseRadius = TILE_SIZE * 1.3 + pulse * 10;
+            const pulseOpacity = 0.1 + pulse * 0.2;
+
+            ctx.fillStyle = `rgba(0, 255, 170, ${pulseOpacity})`;
             ctx.beginPath();
-            ctx.arc(px, py, TILE_SIZE * 1.5, 0, Math.PI * 2);
+            ctx.arc(px, py, pulseRadius, 0, Math.PI * 2);
             ctx.fill();
+
+            ctx.strokeStyle = `rgba(0, 255, 170, ${pulseOpacity * 2})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
 
         ctx.save();
         ctx.translate(px, py);
         ctx.rotate(rotation);
 
-        // Robot body
-        ctx.fillStyle = '#ff8800';
-        ctx.fillRect(-TILE_SIZE * 0.4, -TILE_SIZE * 0.4, TILE_SIZE * 0.8, TILE_SIZE * 0.8);
+        // Shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 5;
 
-        // Direction indicator (front)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(TILE_SIZE * 0.2, -TILE_SIZE * 0.1, TILE_SIZE * 0.2, TILE_SIZE * 0.2);
+        // Elegant Chassis
+        ctx.fillStyle = '#ff7700';
+        ctx.beginPath();
+        if(ctx.roundRect) {
+            ctx.roundRect(-TILE_SIZE * 0.35, -TILE_SIZE * 0.35, TILE_SIZE * 0.7, TILE_SIZE * 0.7, 8);
+        } else {
+            ctx.rect(-TILE_SIZE * 0.35, -TILE_SIZE * 0.35, TILE_SIZE * 0.7, TILE_SIZE * 0.7);
+        }
+        ctx.fill();
+
+        // Inner Chassis Detail
+        ctx.shadowColor = 'transparent'; // reset shadow for inner details
+        ctx.fillStyle = '#cc5500';
+        ctx.beginPath();
+        if(ctx.roundRect) {
+            ctx.roundRect(-TILE_SIZE * 0.25, -TILE_SIZE * 0.25, TILE_SIZE * 0.4, TILE_SIZE * 0.5, 4);
+        } else {
+            ctx.rect(-TILE_SIZE * 0.25, -TILE_SIZE * 0.25, TILE_SIZE * 0.4, TILE_SIZE * 0.5);
+        }
+        ctx.fill();
+
+        // Glowing Visor
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#eeffff';
+        ctx.beginPath();
+        if(ctx.roundRect) {
+            ctx.roundRect(TILE_SIZE * 0.15, -TILE_SIZE * 0.2, TILE_SIZE * 0.15, TILE_SIZE * 0.4, 4);
+        } else {
+            ctx.rect(TILE_SIZE * 0.15, -TILE_SIZE * 0.2, TILE_SIZE * 0.15, TILE_SIZE * 0.4);
+        }
+        ctx.fill();
 
         ctx.restore();
     }
