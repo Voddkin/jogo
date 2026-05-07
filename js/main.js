@@ -1,4 +1,4 @@
-import { GridMap, Robot, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT, TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_EXIT, TILE_ICE, TILE_WARP_A, TILE_WARP_B, TILE_FRAGILE, TILE_HOLE, TILE_SIZE } from './entities.js';
+import { GridMap, Robot, PushableBox, TILE_EMPTY, TILE_WALL, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT, TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_KEY_RED, TILE_GATE_RED, TILE_LASER, TILE_BUTTON, TILE_EXIT, TILE_ICE, TILE_WARP_A, TILE_WARP_B, TILE_FRAGILE, TILE_HOLE, TILE_SIZE } from './entities.js';
 import { LEVELS } from './levels.js';
 
 class Game {
@@ -40,9 +40,11 @@ class Game {
 
         this.gridMap = new GridMap(levelData);
         this.robot = new Robot(levelData.robotStart.x, levelData.robotStart.y, levelData.robotStart.dir);
+        this.boxes = this.gridMap.initialBoxes.map(pos => new PushableBox(pos.x, pos.y));
 
         this.clearQueue();
         this.isExecuting = false;
+        this.updateMapInteractions(this.robot.x, this.robot.y);
     }
 
     addCommand(cmd) {
@@ -69,13 +71,19 @@ class Game {
         }
         this.gridMap.reset();
         this.robot.reset();
+        this.boxes.forEach(box => box.reset());
         this.clearQueue();
+        this.updateMapInteractions(this.robot.x, this.robot.y);
     }
 
     executeQueue() {
         if (this.isExecuting || this.commandQueue.length === 0) return;
         this.isExecuting = true;
         this.timeSinceLastCommand = 0;
+    }
+
+    getBoxAt(x, y) {
+        return this.boxes.find(box => box.x === x && box.y === y);
     }
 
     processNextCommand() {
@@ -98,28 +106,46 @@ class Game {
         // Fragile Floor handling: if robot moves off a fragile tile, collapse it
         const currentTileType = this.gridMap.getTile(tx, ty);
 
+        const tryMove = (nx, ny, dirX, dirY) => {
+            const box = this.getBoxAt(nx, ny);
+            if (box) {
+                // If there's a box, check if we can push it
+                const nnx = nx + dirX;
+                const nny = ny + dirY;
+                if (this.gridMap.isWalkable(nnx, nny) && !this.getBoxAt(nnx, nny)) {
+                    // Push box
+                    box.setTarget(nnx, nny);
+                    return true;
+                }
+                return false; // Can't push box
+            } else if (this.gridMap.isWalkable(nx, ny)) {
+                return true; // No box, walkable
+            }
+            return false; // Not walkable
+        };
+
         if (cmd === 'MOVE_FORWARD' || cmd === 'SYS_SLIDE_FORWARD') {
             const nx = tx + dx[tdir];
             const ny = ty + dy[tdir];
-            if (this.gridMap.isWalkable(nx, ny)) {
+            if (tryMove(nx, ny, dx[tdir], dy[tdir])) {
                 tx = nx;
                 ty = ny;
             }
         } else if (cmd === 'MOVE_BACKWARD' || cmd === 'SYS_SLIDE_BACKWARD') {
             const nx = tx - dx[tdir];
             const ny = ty - dy[tdir];
-            if (this.gridMap.isWalkable(nx, ny)) {
+            if (tryMove(nx, ny, -dx[tdir], -dy[tdir])) {
                 tx = nx;
                 ty = ny;
             }
         } else if (cmd === 'SYS_FORCE_E') {
-            if (this.gridMap.isWalkable(tx + 1, ty)) { tx += 1; }
+            if (tryMove(tx + 1, ty, 1, 0)) { tx += 1; }
         } else if (cmd === 'SYS_FORCE_S') {
-            if (this.gridMap.isWalkable(tx, ty + 1)) { ty += 1; }
+            if (tryMove(tx, ty + 1, 0, 1)) { ty += 1; }
         } else if (cmd === 'SYS_FORCE_W') {
-            if (this.gridMap.isWalkable(tx - 1, ty)) { tx -= 1; }
+            if (tryMove(tx - 1, ty, -1, 0)) { tx -= 1; }
         } else if (cmd === 'SYS_FORCE_N') {
-            if (this.gridMap.isWalkable(tx, ty - 1)) { ty -= 1; }
+            if (tryMove(tx, ty - 1, 0, -1)) { ty -= 1; }
         } else if (cmd === 'TURN_RIGHT') {
             tdir = (tdir + 1) % 4;
         } else if (cmd === 'TURN_LEFT') {
@@ -224,6 +250,13 @@ class Game {
             buttonPressed = true;
         }
 
+        // Check if any box is on a button
+        for (const box of this.boxes) {
+            if (this.gridMap.getTile(box.targetX, box.targetY) === TILE_BUTTON) {
+                buttonPressed = true;
+            }
+        }
+
         // EMP active checking 3x3 area
         if (this.robot.empActive) {
             for (let dy = -1; dy <= 1; dy++) {
@@ -249,12 +282,29 @@ class Game {
     }
 
     update(dt) {
+        let isAnyAnimating = false;
+
         if (this.robot.isAnimating) {
             this.robot.updateAnimation();
+            isAnyAnimating = true;
             if (!this.robot.isAnimating) {
                 this.robot.finishAnimation();
-                this.timeSinceLastCommand = 0; // start delay timer after animation finishes
             }
+        }
+
+        for (const box of this.boxes) {
+            if (box.isAnimating) {
+                box.updateAnimation();
+                isAnyAnimating = true;
+                if (!box.isAnimating) {
+                    box.finishAnimation();
+                }
+            }
+        }
+
+        if (isAnyAnimating) {
+             // Reset timer while animating
+             this.timeSinceLastCommand = 0;
         } else if (this.isExecuting) {
             this.timeSinceLastCommand += dt;
             if (this.timeSinceLastCommand >= this.commandDelay) {
@@ -266,6 +316,9 @@ class Game {
     render() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.gridMap.draw(this.ctx);
+        for (const box of this.boxes) {
+            box.draw(this.ctx);
+        }
         this.robot.draw(this.ctx);
     }
 }

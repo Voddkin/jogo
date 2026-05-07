@@ -22,6 +22,7 @@ export class GridMap {
     constructor(levelData) {
         this.cols = levelData.width;
         this.rows = levelData.height;
+        this.initialBoxes = []; // Store initial crate positions
         this.initialGridData = this.parseLayout(levelData.layout);
         this.grid = JSON.parse(JSON.stringify(this.initialGridData));
         this.redGatesOpen = false;
@@ -51,6 +52,10 @@ export class GridMap {
                     case 'WB': row.push(TILE_WARP_B); break;
                     case 'F': row.push(TILE_FRAGILE); break;
                     case 'H': row.push(TILE_HOLE); break;
+                    case 'C':
+                        row.push(TILE_EMPTY);
+                        this.initialBoxes.push({x, y});
+                        break;
                     default: row.push(TILE_EMPTY); break;
                 }
             }
@@ -417,5 +422,106 @@ export class Robot {
         ctx.fill();
 
         ctx.restore();
+    }
+}
+
+export class PushableBox {
+    constructor(startX, startY) {
+        this.startX = startX;
+        this.startY = startY;
+
+        this.x = startX;
+        this.y = startY;
+
+        this.visualX = startX;
+        this.visualY = startY;
+
+        this.isAnimating = false;
+        this.animProgress = 0;
+        this.animSpeed = 0.1;
+
+        this.targetX = startX;
+        this.targetY = startY;
+    }
+
+    reset() {
+        this.x = this.startX;
+        this.y = this.startY;
+        this.visualX = this.startX;
+        this.visualY = this.startY;
+        this.isAnimating = false;
+        this.animProgress = 0;
+    }
+
+    setTarget(tx, ty) {
+        this.x = this.visualX;
+        this.y = this.visualY;
+        this.targetX = tx;
+        this.targetY = ty;
+        this.animProgress = 0;
+        this.isAnimating = true;
+    }
+
+    updateAnimation() {
+        if (!this.isAnimating) return;
+        this.animProgress += this.animSpeed;
+        if (this.animProgress >= 1) {
+            this.animProgress = 1;
+            this.isAnimating = false;
+        }
+        this.visualX = this.x + (this.targetX - this.x) * this.animProgress;
+        this.visualY = this.y + (this.targetY - this.y) * this.animProgress;
+    }
+
+    finishAnimation() {
+        this.x = this.targetX;
+        this.y = this.targetY;
+        this.visualX = this.x;
+        this.visualY = this.y;
+        this.isAnimating = false;
+    }
+
+    draw(ctx) {
+        const px = this.visualX * TILE_SIZE;
+        const py = this.visualY * TILE_SIZE;
+
+        // Shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 5;
+
+        // Base metallic block
+        ctx.fillStyle = '#445566';
+        if(ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8, 4);
+            ctx.fill();
+        } else {
+            ctx.fillRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        }
+
+        // Inner metallic grating
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = '#223344';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 1; i <= 3; i++) {
+            ctx.moveTo(px + 4, py + 4 + i * 10);
+            ctx.lineTo(px + TILE_SIZE - 4, py + 4 + i * 10);
+            ctx.moveTo(px + 4 + i * 10, py + 4);
+            ctx.lineTo(px + 4 + i * 10, py + TILE_SIZE - 4);
+        }
+        ctx.stroke();
+
+        // Highlight border
+        ctx.strokeStyle = '#667788';
+        ctx.lineWidth = 1;
+        if(ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10, 3);
+            ctx.stroke();
+        } else {
+            ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+        }
     }
 }
