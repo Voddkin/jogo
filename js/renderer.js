@@ -134,8 +134,8 @@ export class Renderer {
         this.ctx.translate(-cam.viewportX, -cam.viewportY);
 
         if (cam.currentOffsetX !== 0 || cam.currentOffsetY !== 0 || cam.currentAngle !== 0) {
-            const cx = cam.viewportX + this.canvas.width / 2;
-            const cy = cam.viewportY + this.canvas.height / 2;
+            const cx = cam.viewportX + this.canvas.clientWidth / 2;
+            const cy = cam.viewportY + this.canvas.clientHeight / 2;
             this.ctx.translate(cx + cam.currentOffsetX, cy + cam.currentOffsetY);
             this.ctx.rotate(cam.currentAngle);
             this.ctx.translate(-cx, -cy);
@@ -143,12 +143,12 @@ export class Renderer {
 
         // Viewport bounds for culling
         const vLeft = cam.viewportX - ts;
-        const vRight = cam.viewportX + this.canvas.width + ts;
+        const vRight = cam.viewportX + this.canvas.clientWidth + ts;
         const vTop = cam.viewportY - ts;
-        const vBottom = cam.viewportY + this.canvas.height + ts;
+        const vBottom = cam.viewportY + this.canvas.clientHeight + ts;
 
         // 2. Draw Cached Background
-        this.ctx.drawImage(this.layerBackground, 0, 0);
+        this.ctx.drawImage(this.layerBackground, 0, 0, this.mapWidth, this.mapHeight);
 
         // 3. Draw Dynamic Floor Elements (Animated Rollers, Warps, EMP, Wires, Ribbons)
         // Here we must loop through visible tiles if we want animated floors.
@@ -164,7 +164,7 @@ export class Renderer {
         this.game.robot.drawTrail(this.ctx, ts, 0, 0);
 
         // 4. Draw Cached Static Geometry (Walls, Shadows)
-        this.ctx.drawImage(this.layerStaticGeometry, 0, 0);
+        this.ctx.drawImage(this.layerStaticGeometry, 0, 0, this.mapWidth, this.mapHeight);
 
         // 5. Draw Dynamic Entities with Y-Sorting
         // Sorting is done in Game Loop
@@ -202,14 +202,14 @@ export class Renderer {
         // We must draw the lighting layer matching the camera transform
         this.ctx.translate(-cam.viewportX, -cam.viewportY);
         if (cam.currentOffsetX !== 0 || cam.currentOffsetY !== 0 || cam.currentAngle !== 0) {
-            const cx = cam.viewportX + this.canvas.width / 2;
-            const cy = cam.viewportY + this.canvas.height / 2;
+            const cx = cam.viewportX + this.canvas.clientWidth / 2;
+            const cy = cam.viewportY + this.canvas.clientHeight / 2;
             this.ctx.translate(cx + cam.currentOffsetX, cy + cam.currentOffsetY);
             this.ctx.rotate(cam.currentAngle);
             this.ctx.translate(-cx, -cy);
         }
 
-        this.ctx.drawImage(this.layerLighting, 0, 0);
+        this.ctx.drawImage(this.layerLighting, 0, 0, this.mapWidth, this.mapHeight);
         this.ctx.restore();
     }
 }

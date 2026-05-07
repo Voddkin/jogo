@@ -62,11 +62,9 @@ export class Game {
     }
 
     resizeCanvas() {
-        // Native pixels for crispness
         const rect = this.wrapper.getBoundingClientRect();
-        this.canvas.width = rect.width;
-        this.canvas.height = rect.height;
-        this.camera.resize(this.canvas.width, this.canvas.height);
+        this.camera.resize(rect.width, rect.height);
+        if (this.renderer) this.renderer.resize(rect.width, rect.height);
         this.calculateGridMetrics();
     }
 
@@ -650,7 +648,7 @@ export class Game {
     }
 
     update(dt) {
-        this.camera.update(dt);
+        this.camera.update(dt, this.robot.visualX * this.tileSize, this.robot.visualY * this.tileSize);
         this.particlePool.update(dt);
 
         // Remove completely fallen boxes
