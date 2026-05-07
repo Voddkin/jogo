@@ -379,6 +379,11 @@ canvas {
     gap: 12px;
 }
 
+.cmd-block.is-error {
+    background: var(--color-error);
+    border-color: #ffaa99;
+}
+
 /* Keyframes */
 @keyframes popIn {
     0% { opacity: 0; transform: scale(0.8) translateX(-10px); }

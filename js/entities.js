@@ -171,7 +171,12 @@ export class GridMap {
                     ctx.shadowBlur = this.buttonPressed ? 15 : 0;
                     ctx.fillStyle = btnColor;
                     ctx.beginPath();
-                    ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.24, 0, Math.PI * 2);
+                    // Button press slight drop effect if it's on a button
+                    let drawY = py + tileSize / 2;
+                    if (this.buttonPressed) {
+                        drawY += tileSize * 0.05;
+                    }
+                    ctx.arc(px + tileSize / 2, drawY, tileSize * 0.24, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -228,6 +233,8 @@ export class GridMap {
     }
 }
 
+import { Easing, lerp } from './mathUtils.js';
+
 export class Robot {
     constructor(startX, startY, startDir) {
         this.startX = startX;
@@ -245,6 +252,10 @@ export class Robot {
         this.visualY = startY;
         this.visualDir = startDir;
 
+        // Scale for Squash & Stretch
+        this.scaleX = 1.0;
+        this.scaleY = 1.0;
+
         // Animation state
         this.isAnimating = false;
         this.animProgress = 0;
@@ -253,6 +264,9 @@ export class Robot {
         this.targetX = startX;
         this.targetY = startY;
         this.targetDir = startDir;
+
+        // Track the kind of movement for specific easings
+        this.moveType = 'IDLE'; // 'MOVE', 'TURN', 'BUMP'
     }
 
     reset() {
@@ -264,48 +278,109 @@ export class Robot {
         this.visualX = this.startX;
         this.visualY = this.startY;
         this.visualDir = this.startDir;
+
+        this.scaleX = 1.0;
+        this.scaleY = 1.0;
+
         this.isAnimating = false;
         this.animProgress = 0;
+        this.moveType = 'IDLE';
     }
 
     updateAnimation(dt) {
         if (!this.isAnimating) return;
 
         this.animProgress += this.animSpeed * dt;
+        let p = this.animProgress;
+
         if (this.animProgress >= 1) {
             this.animProgress = 1;
+            p = 1.0;
             this.isAnimating = false;
         }
 
-        // Interpolate position
-        this.visualX = this.x + (this.targetX - this.x) * this.animProgress;
-        this.visualY = this.y + (this.targetY - this.y) * this.animProgress;
+        if (this.moveType === 'MOVE') {
+            const easeP = Easing.easeInOutQuad(p);
+            this.visualX = lerp(this.x, this.targetX, easeP);
+            this.visualY = lerp(this.y, this.targetY, easeP);
 
-        // Interpolate rotation (handling wrap-around nicely)
-        let diff = this.targetDir - this.dir;
-        if (diff > 2) diff -= 4;
-        if (diff < -2) diff += 4;
-        this.visualDir = this.dir + diff * this.animProgress;
+            // Squash & Stretch
+            if (p < 0.5) {
+                // Acceleration: Stretch
+                const stretchP = Easing.easeInQuad(p * 2); // 0 to 1
+                this.scaleX = lerp(1.0, 1.2, stretchP);
+                this.scaleY = lerp(1.0, 0.8, stretchP);
+            } else if (p < 0.8) {
+                // Deceleration: Squash
+                const squashP = (p - 0.5) / 0.3; // 0 to 1
+                this.scaleX = lerp(1.2, 0.7, Easing.easeOutQuad(squashP));
+                this.scaleY = lerp(0.8, 1.3, Easing.easeOutQuad(squashP));
+            } else {
+                // Resting: Elastic return
+                const restP = (p - 0.8) / 0.2; // 0 to 1
+                this.scaleX = lerp(0.7, 1.0, Easing.easeOutElastic(restP));
+                this.scaleY = lerp(1.3, 1.0, Easing.easeOutElastic(restP));
+            }
+        } else if (this.moveType === 'BUMP') {
+            // Move half a tile and return
+            const easeP = p < 0.5 ? Easing.easeOutQuad(p * 2) : Easing.easeOutQuad(1 - (p - 0.5) * 2);
+            // targetX/targetY holds the wall position
+            const halfX = this.x + (this.targetX - this.x) * 0.4;
+            const halfY = this.y + (this.targetY - this.y) * 0.4;
+
+            this.visualX = lerp(this.x, halfX, easeP);
+            this.visualY = lerp(this.y, halfY, easeP);
+
+            if (p < 0.5) {
+                this.scaleX = lerp(1.0, 0.6, p * 2);
+                this.scaleY = lerp(1.0, 1.4, p * 2);
+            } else {
+                this.scaleX = lerp(0.6, 1.0, (p - 0.5) * 2);
+                this.scaleY = lerp(1.4, 1.0, (p - 0.5) * 2);
+            }
+        } else if (this.moveType === 'TURN') {
+            const easeP = Easing.easeOutBack(p);
+            let diff = this.targetDir - this.dir;
+            if (diff > 2) diff -= 4;
+            if (diff < -2) diff += 4;
+            this.visualDir = this.dir + diff * easeP;
+        } else {
+            this.visualX = lerp(this.x, this.targetX, p);
+            this.visualY = lerp(this.y, this.targetY, p);
+            let diff = this.targetDir - this.dir;
+            if (diff > 2) diff -= 4;
+            if (diff < -2) diff += 4;
+            this.visualDir = this.dir + diff * p;
+        }
     }
 
     finishAnimation() {
-        this.x = this.targetX;
-        this.y = this.targetY;
-        // normalize dir
-        this.dir = (this.targetDir % 4 + 4) % 4;
+        if (this.moveType !== 'BUMP') {
+            this.x = this.targetX;
+            this.y = this.targetY;
+            // normalize dir
+            this.dir = (this.targetDir % 4 + 4) % 4;
+        }
+
         this.visualX = this.x;
         this.visualY = this.y;
         this.visualDir = this.dir;
+
+        this.scaleX = 1.0;
+        this.scaleY = 1.0;
+
         this.isAnimating = false;
+        this.moveType = 'IDLE';
     }
 
-    setTarget(tx, ty, tdir) {
+    setTarget(tx, ty, tdir, moveType = 'MOVE') {
         this.x = this.visualX;
         this.y = this.visualY;
         this.dir = this.visualDir;
         this.targetX = tx;
         this.targetY = ty;
         this.targetDir = tdir;
+        this.moveType = moveType;
         this.animProgress = 0;
         this.isAnimating = true;
     }
@@ -333,6 +408,7 @@ export class Robot {
         ctx.save();
         ctx.translate(px, py);
         ctx.rotate(rotation);
+        ctx.scale(this.scaleX, this.scaleY);
 
         // Shadow
         ctx.shadowColor = 'rgba(255, 107, 0, 0.4)';
@@ -433,8 +509,8 @@ export class PushableBox {
     }
 
     draw(ctx, tileSize, offsetX, offsetY) {
-        const px = offsetX + this.visualX * tileSize;
-        const py = offsetY + this.visualY * tileSize;
+        let px = offsetX + this.visualX * tileSize;
+        let py = offsetY + this.visualY * tileSize;
 
         // Shadow
         ctx.shadowColor = 'rgba(0,0,0,0.8)';
