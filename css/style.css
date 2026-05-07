@@ -10,6 +10,7 @@
     --color-action-turn: #8b5cf6;
     --color-action-emp: #f59e0b;
     --color-executing-glow: rgba(168, 85, 247, 0.6);
+    --color-error: #ef4444;
     --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.6);
     --shadow-block: 0 4px 12px rgba(0, 0, 0, 0.4);
     --radius-panel: 12px;

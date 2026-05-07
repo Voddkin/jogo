@@ -22,6 +22,11 @@ export class LevelParser {
         const gridMatrix = [];
         const initialBoxes = [];
 
+        const warpPairs = {
+            'A': [],
+            'B': []
+        };
+
         for (let y = 0; y < levelData.grid.height; y++) {
             const row = [];
             // Some cells might take more than 1 char (e.g. 'R>'), so we need to match carefully
@@ -62,8 +67,14 @@ export class LevelParser {
                     case 'L': row.push(TILE_LASER); break;
                     case 'K_R': row.push(TILE_KEY_RED); break;
                     case 'G_R': row.push(TILE_GATE_RED); break;
-                    case 'WA': row.push(TILE_WARP_A); break;
-                    case 'WB': row.push(TILE_WARP_B); break;
+                    case 'WA':
+                        row.push(TILE_WARP_A);
+                        warpPairs['A'].push({x,y});
+                        break;
+                    case 'WB':
+                        row.push(TILE_WARP_B);
+                        warpPairs['B'].push({x,y});
+                        break;
                     case 'F': row.push(TILE_FRAGILE); break;
                     case 'H': row.push(TILE_HOLE); break;
                     case 'C':
@@ -78,6 +89,17 @@ export class LevelParser {
             gridMatrix.push(row);
         }
 
-        return { gridMatrix, initialBoxes };
+        // Strict mapping validation for Warp Nodes
+        for (const [key, nodes] of Object.entries(warpPairs)) {
+            if (nodes.length > 0 && nodes.length !== 2) {
+                console.error(`COMPILATION ERROR: Warp Node pair '${key}' has ${nodes.length} nodes. Exactly 2 are required.`);
+                alert(`COMPILATION ERROR: Warp Node pair '${key}' has ${nodes.length} nodes. Exactly 2 are required.`);
+            }
+        }
+
+        const triggers = levelData.triggers || [];
+        const receivers = levelData.receivers || [];
+
+        return { gridMatrix, initialBoxes, triggers, receivers };
     }
 }
