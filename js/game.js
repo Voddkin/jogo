@@ -24,7 +24,7 @@ export class Game {
         this.ctx = this.canvas.getContext('2d');
         this.wrapper = document.getElementById('canvas-wrapper');
 
-        this.state = GAME_STATES.IDLE;
+        this.state = GAME_STATES.STANDBY;
         this.currentLevelIndex = 0;
 
         this.commandQueue = [];
@@ -56,7 +56,7 @@ export class Game {
 
         // Initial setup
         this.resizeCanvas();
-        this.loadLevel(this.currentLevelIndex);
+        // Wait to load level until game session starts
 
         requestAnimationFrame(this.gameLoop.bind(this));
     }
@@ -130,6 +130,15 @@ export class Game {
         this.state = GAME_STATES.IDLE;
         this.uiManager.updateStateStatus(this.state);
         this.updateMapInteractions(this.robot.x, this.robot.y);
+    }
+
+    startSession() {
+        this.state = GAME_STATES.IDLE;
+        this.loadLevel(0); // Load level 0 on start
+    }
+
+    pauseSession() {
+        this.state = GAME_STATES.STANDBY;
     }
 
     addCommand(cmd) {
@@ -637,6 +646,12 @@ export class Game {
     }
 
     gameLoop(timestamp) {
+        if (this.state === GAME_STATES.STANDBY) {
+            this.lastTime = timestamp;
+            requestAnimationFrame(this.gameLoop.bind(this));
+            return;
+        }
+
         // Hard clamp delta time to prevent tunneling/NaN from extreme lag or tab-switching (max ~32ms per frame)
         const dt = Math.min(timestamp - this.lastTime, 32);
         this.lastTime = timestamp;
