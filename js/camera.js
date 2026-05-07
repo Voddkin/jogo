@@ -1,7 +1,7 @@
+import { lerp } from './mathUtils.js';
+
 export class Camera {
     constructor(maxOffset = 15, maxAngle = 0.05) {
-        this.x = 0;
-        this.y = 0;
         this.trauma = 0;
         this.maxOffset = maxOffset;
         this.maxAngle = maxAngle;
@@ -10,13 +10,28 @@ export class Camera {
         this.currentOffsetX = 0;
         this.currentOffsetY = 0;
         this.currentAngle = 0;
+
+        // Viewport
+        this.viewportX = 0;
+        this.viewportY = 0;
+        this.viewportWidth = 800;
+        this.viewportHeight = 600;
+    }
+
+    resize(width, height) {
+        this.viewportWidth = width;
+        this.viewportHeight = height;
     }
 
     addTrauma(amount) {
         this.trauma = Math.min(this.trauma + amount, 1.0);
     }
 
-    update(dt) {
+    update(dt, targetX, targetY) {
+        // Smooth lerp to follow target
+        this.viewportX = lerp(this.viewportX, targetX - this.viewportWidth / 2, dt * 0.005);
+        this.viewportY = lerp(this.viewportY, targetY - this.viewportHeight / 2, dt * 0.005);
+
         if (this.trauma > 0) {
             this.trauma = Math.max(this.trauma - dt * this.decayRate, 0);
 
@@ -32,10 +47,13 @@ export class Camera {
     }
 
     applyTransform(ctx, canvasWidth, canvasHeight) {
+        // Apply camera offset (panning)
+        ctx.translate(-this.viewportX, -this.viewportY);
+
         if (this.currentOffsetX !== 0 || this.currentOffsetY !== 0 || this.currentAngle !== 0) {
             // Translate to center to rotate around the center of the screen
-            const cx = canvasWidth / 2;
-            const cy = canvasHeight / 2;
+            const cx = this.viewportX + canvasWidth / 2;
+            const cy = this.viewportY + canvasHeight / 2;
 
             ctx.translate(cx + this.currentOffsetX, cy + this.currentOffsetY);
             ctx.rotate(this.currentAngle);

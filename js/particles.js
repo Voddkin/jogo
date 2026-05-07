@@ -55,20 +55,24 @@ export class ParticlePool {
         }
     }
 
-    draw(ctx, offsetX, offsetY) {
+    draw(ctx, offsetX, offsetY, vLeft, vRight, vTop, vBottom) {
         ctx.save();
-        for (let i = 0; i < this.pool.length; i++) {
+        const len = this.pool.length;
+        for (let i = 0; i < len; i++) {
             let p = this.pool[i];
             if (p.active) {
-                ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-                ctx.fillStyle = p.color;
-
                 const px = offsetX + p.x;
                 const py = offsetY + p.y;
 
-                ctx.beginPath();
-                ctx.arc(px, py, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                // Frustum culling
+                if (px >= vLeft && px <= vRight && py >= vTop && py <= vBottom) {
+                    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+                    ctx.fillStyle = p.color;
+
+                    ctx.beginPath();
+                    ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
         ctx.restore();

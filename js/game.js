@@ -4,6 +4,7 @@ import { LevelParser } from './levelParser.js';
 import { UIManager } from './uiManager.js';
 import { Camera } from './camera.js';
 import { ParticlePool } from './particles.js';
+import { Renderer } from './renderer.js';
 
 const GAME_STATES = Object.freeze({
     IDLE: 'IDLE',
@@ -49,6 +50,8 @@ export class Game {
         this.camera = new Camera();
         this.particlePool = new ParticlePool(1000);
 
+        this.renderer = new Renderer(canvasId, this);
+
         this.empRings = []; // For EMP shockwave rings
 
         // Initial setup
@@ -63,24 +66,22 @@ export class Game {
         const rect = this.wrapper.getBoundingClientRect();
         this.canvas.width = rect.width;
         this.canvas.height = rect.height;
+        this.camera.resize(this.canvas.width, this.canvas.height);
         this.calculateGridMetrics();
     }
 
     calculateGridMetrics() {
         if (!this.gridMap) return;
 
-        // Calculate max tile size that fits in both dimensions
-        const maxTileWidth = this.canvas.width / this.gridMap.cols;
-        const maxTileHeight = this.canvas.height / this.gridMap.rows;
+        // In the multi-canvas architecture, the world is drawn at a fixed logic size
+        // and the camera pans across it. We don't shrink the grid to fit the screen anymore.
+        this.tileSize = 64;
 
-        // Limit max size so it doesn't look absurdly huge on wide screens, but fills available space
-        this.tileSize = Math.floor(Math.min(maxTileWidth, maxTileHeight) * 0.9);
+        // Offset is handled by the Camera viewport now.
+        this.offsetX = 0;
+        this.offsetY = 0;
 
-        const totalGridWidth = this.gridMap.cols * this.tileSize;
-        const totalGridHeight = this.gridMap.rows * this.tileSize;
-
-        this.offsetX = (this.canvas.width - totalGridWidth) / 2;
-        this.offsetY = (this.canvas.height - totalGridHeight) / 2;
+        this.renderer.initLevelCache(this.gridMap.cols, this.gridMap.rows, this.tileSize);
     }
 
     loadLevel(index) {
@@ -99,9 +100,10 @@ export class Game {
         this.robot = new Robot(levelData.spawn.x, levelData.spawn.y, levelData.spawn.direction);
         this.dynamicEntities = [];
         this.dynamicEntities.push(this.robot);
-        parsedData.initialBoxes.forEach(pos => {
+        for (let i = 0, len = parsedData.initialBoxes.length; i < len; i++) {
+            const pos = parsedData.initialBoxes[i];
             this.dynamicEntities.push(new PushableBox(pos.x, pos.y));
-        });
+        }
 
         // Logical Circuit State
         this.triggers = parsedData.triggers;
@@ -134,7 +136,13 @@ export class Game {
 
     addCommand(cmd) {
         if (this.state !== GAME_STATES.IDLE) return;
-        if (this.commandQueue.filter(c => !c.startsWith('SYS_')).length >= this.uiManager.MAX_COMMANDS) return;
+
+        let visibleCount = 0;
+        for (let i = 0, len = this.commandQueue.length; i < len; i++) {
+            if (!this.commandQueue[i].startsWith('SYS_')) visibleCount++;
+        }
+
+        if (visibleCount >= this.uiManager.MAX_COMMANDS) return;
 
         this.commandQueue.push(cmd);
         this.uiManager.syncTimeline(this.commandQueue);
@@ -171,7 +179,11 @@ export class Game {
     }
 
     getBoxAt(x, y) {
-        return this.dynamicEntities.find(ent => ent !== this.robot && ent.x === x && ent.y === y);
+        for (let i = 0, len = this.dynamicEntities.length; i < len; i++) {
+            const ent = this.dynamicEntities[i];
+            if (ent !== this.robot && ent.x === x && ent.y === y) return ent;
+        }
+        return undefined;
     }
 
     processLogicalCommand() {
@@ -542,16 +554,18 @@ export class Game {
         if (!this.triggers || !this.receivers) return;
 
         // Reset all triggers
-        for (const trig of this.triggers) {
-            trig.active = false;
+        for (let i = 0, len = this.triggers.length; i < len; i++) {
+            this.triggers[i].active = false;
         }
 
         // Evaluate triggers
-        for (const ent of this.dynamicEntities) {
+        for (let j = 0, entLen = this.dynamicEntities.length; j < entLen; j++) {
+            const ent = this.dynamicEntities[j];
             const ex = ent.targetX;
             const ey = ent.targetY;
 
-            for (const trig of this.triggers) {
+            for (let i = 0, len = this.triggers.length; i < len; i++) {
+                const trig = this.triggers[i];
                 if (trig.x === ex && trig.y === ey) {
                     trig.active = true;
                 }
@@ -560,7 +574,8 @@ export class Game {
 
         // EMP overrides triggers
         if (this.robot.empActive) {
-            for (const trig of this.triggers) {
+            for (let i = 0, len = this.triggers.length; i < len; i++) {
+                const trig = this.triggers[i];
                 if (Math.abs(trig.x - this.robot.targetX) <= 1 && Math.abs(trig.y - this.robot.targetY) <= 1) {
                     trig.active = true;
                 }
@@ -568,7 +583,8 @@ export class Game {
         }
 
         // Particle feedback on freshly pressed buttons
-        for (const trig of this.triggers) {
+        for (let i = 0, len = this.triggers.length; i < len; i++) {
+            const trig = this.triggers[i];
             if (trig.active && !trig.wasActive) {
                 for (let i = 0; i < 15; i++) {
                     const angle = Math.random() * Math.PI * 2;
@@ -590,19 +606,28 @@ export class Game {
         }
 
         // Evaluate receivers (Lasers)
-        for (const rec of this.receivers) {
+        for (let i = 0, len = this.receivers.length; i < len; i++) {
+            const rec = this.receivers[i];
             if (rec.type === 'laser') {
                 let conditionMet = false;
                 if (rec.logic === 'AND') {
                     conditionMet = true;
-                    for (const reqId of rec.requires) {
-                        const t = this.triggers.find(tr => tr.id === reqId);
+                    for (let j = 0, rLen = rec.requires.length; j < rLen; j++) {
+                        const reqId = rec.requires[j];
+                        let t = undefined;
+                        for (let k = 0, tLen = this.triggers.length; k < tLen; k++) {
+                            if (this.triggers[k].id === reqId) { t = this.triggers[k]; break; }
+                        }
                         if (!t || !t.active) conditionMet = false;
                     }
                 } else if (rec.logic === 'OR') {
                     conditionMet = false;
-                    for (const reqId of rec.requires) {
-                        const t = this.triggers.find(tr => tr.id === reqId);
+                    for (let j = 0, rLen = rec.requires.length; j < rLen; j++) {
+                        const reqId = rec.requires[j];
+                        let t = undefined;
+                        for (let k = 0, tLen = this.triggers.length; k < tLen; k++) {
+                            if (this.triggers[k].id === reqId) { t = this.triggers[k]; break; }
+                        }
                         if (t && t.active) conditionMet = true;
                     }
                 }
@@ -721,89 +746,98 @@ export class Game {
         }
     }
 
-    render() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        if (!this.gridMap) return;
-
-        this.ctx.save();
-        this.camera.applyTransform(this.ctx, this.canvas.width, this.canvas.height);
-
-        const time = Date.now();
-        this.gridMap.drawFloor(this.ctx, this.tileSize, this.offsetX, this.offsetY, time);
-
-        // Logic Circuit Wires
-        if (this.receivers && this.triggers) {
-            for (const rec of this.receivers) {
-                for (const reqId of rec.requires) {
-                    const trig = this.triggers.find(t => t.id === reqId);
-                    if (trig) {
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(this.offsetX + trig.x * this.tileSize + this.tileSize / 2, this.offsetY + trig.y * this.tileSize + this.tileSize / 2);
-                        this.ctx.lineTo(this.offsetX + rec.x * this.tileSize + this.tileSize / 2, this.offsetY + rec.y * this.tileSize + this.tileSize / 2);
-
-                        if (trig.active) {
-                            this.ctx.strokeStyle = '#00ffcc';
-                            this.ctx.lineWidth = 2;
-                            this.ctx.shadowColor = '#00ffcc';
-                            this.ctx.shadowBlur = 10;
-                        } else {
-                            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                            this.ctx.lineWidth = 1;
-                            this.ctx.shadowBlur = 0;
-                        }
-                        this.ctx.stroke();
-                        this.ctx.shadowBlur = 0;
+    drawWires(ctx, ts, offsetX, offsetY) {
+        if (!this.receivers || !this.triggers) return;
+        for (let i = 0, len = this.receivers.length; i < len; i++) {
+            const rec = this.receivers[i];
+            for (let j = 0, rLen = rec.requires.length; j < rLen; j++) {
+                const reqId = rec.requires[j];
+                // Find trigger
+                let trig = null;
+                for (let k = 0, tLen = this.triggers.length; k < tLen; k++) {
+                    if (this.triggers[k].id === reqId) {
+                        trig = this.triggers[k];
+                        break;
                     }
+                }
+
+                if (trig) {
+                    ctx.beginPath();
+                    ctx.moveTo(offsetX + trig.x * ts + ts / 2, offsetY + trig.y * ts + ts / 2);
+                    ctx.lineTo(offsetX + rec.x * ts + ts / 2, offsetY + rec.y * ts + ts / 2);
+
+                    if (trig.active) {
+                        ctx.strokeStyle = '#00ffcc';
+                        ctx.lineWidth = 2;
+                        ctx.shadowColor = '#00ffcc';
+                        ctx.shadowBlur = 10;
+                    } else {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.lineWidth = 1;
+                        ctx.shadowBlur = 0;
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
                 }
             }
         }
+    }
 
-        // EMP Rings, Ribbon Trail will go here...
-        this.robot.drawTrail(this.ctx, this.tileSize, this.offsetX, this.offsetY);
-
-        // Draw EMP rings (Ultra Prompt 5)
-        for (const ring of this.empRings) {
-            this.ctx.save();
+    drawEMP(ctx, ts, offsetX, offsetY, time) {
+        for (let i = 0, len = this.empRings.length; i < len; i++) {
+            const ring = this.empRings[i];
+            ctx.save();
             const alpha = ring.life / ring.maxLife;
-            this.ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
-            this.ctx.lineWidth = ring.thickness;
-            this.ctx.setLineDash([10, 20, 5, 10]);
-            this.ctx.lineDashOffset = time * 0.05; // Spinning dashed line
-            this.ctx.beginPath();
-            this.ctx.arc(this.offsetX + ring.x, this.offsetY + ring.y, ring.radius, 0, Math.PI * 2);
-            this.ctx.stroke();
-            this.ctx.restore(); // MUST restore to clear setLineDash
+            ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
+            ctx.lineWidth = ring.thickness;
+            ctx.setLineDash([10, 20, 5, 10]);
+            ctx.lineDashOffset = time * 0.05;
+            ctx.beginPath();
+            ctx.arc(offsetX + ring.x, offsetY + ring.y, ring.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
 
-            // Central Flash
-            this.ctx.save();
-            this.ctx.globalCompositeOperation = 'screen';
-            const flashGrad = this.ctx.createRadialGradient(
-                this.offsetX + ring.x, this.offsetY + ring.y, 0,
-                this.offsetX + ring.x, this.offsetY + ring.y, ring.radius
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const flashGrad = ctx.createRadialGradient(
+                offsetX + ring.x, offsetY + ring.y, 0,
+                offsetX + ring.x, offsetY + ring.y, ring.radius
             );
             flashGrad.addColorStop(0, `rgba(0, 255, 255, ${alpha * 0.2})`);
             flashGrad.addColorStop(1, 'rgba(0, 255, 255, 0)');
-            this.ctx.fillStyle = flashGrad;
-            this.ctx.beginPath();
-            this.ctx.arc(this.offsetX + ring.x, this.offsetY + ring.y, ring.radius, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.restore();
+            ctx.fillStyle = flashGrad;
+            ctx.beginPath();
+            ctx.arc(offsetX + ring.x, offsetY + ring.y, ring.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
+    }
 
-        this.gridMap.drawWalls(this.ctx, this.tileSize, this.offsetX, this.offsetY);
+    drawLasers(ctxLighting, ts, offsetX, offsetY) {
+        if (!this.receivers) return;
+        for (let i = 0, len = this.receivers.length; i < len; i++) {
+            const rec = this.receivers[i];
+            if (rec.type === 'laser' && !rec.active) { // !active means laser is ON
+                const px = offsetX + rec.x * ts;
+                const py = offsetY + rec.y * ts;
 
-        // Y-Sort dynamic entities before drawing
-        this.dynamicEntities.sort((a, b) => {
-            return a.visualY !== b.visualY ? a.visualY - b.visualY : a.visualX - b.visualX;
-        });
+                ctxLighting.shadowColor = '#ff0055';
+                ctxLighting.shadowBlur = 15;
+                ctxLighting.fillStyle = '#ff0055';
+                ctxLighting.fillRect(px + ts / 2 - 3, py, 6, ts);
 
-        for (const ent of this.dynamicEntities) {
-            ent.draw(this.ctx, this.tileSize, this.offsetX, this.offsetY);
+                ctxLighting.shadowBlur = 0;
+                ctxLighting.fillStyle = '#ffffff';
+                ctxLighting.fillRect(px + ts / 2 - 1, py, 2, ts);
+            }
         }
+    }
 
-        this.particlePool.draw(this.ctx, this.offsetX, this.offsetY);
+    render() {
+        if (!this.gridMap) return;
 
-        this.ctx.restore();
+        // Delegate rendering entirely to Renderer class
+        const time = Date.now();
+        this.renderer.draw(this.lastTime, time);
     }
 }
