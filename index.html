@@ -33,7 +33,7 @@
                     <div id="overlay-message" class="hidden">
                         <h1 id="overlay-text">Level Complete!</h1>
                         <button id="btn-next-level" class="btn-action">Next Level</button>
-                        <button onclick="window.router.maps('screen-menu')" class="btn-action" style="margin-top: 10px;">Menu Principal</button>
+                        <button id="btn-return-select" class="btn-action" style="margin-top: 10px;">[ RETURN TO SELECT ]</button>
                     </div>
                 </div>
 
@@ -95,8 +95,13 @@
 
         <!-- LEVEL SELECT SCREEN -->
         <div id="screen-level-select" class="screen">
-            <h1 class="glitch" data-text="Em Breve">Em Breve</h1>
-            <button onclick="window.router.maps('screen-menu')" class="btn-action" style="margin-top:20px;">Voltar</button>
+            <header class="panel__header" style="width: 100%; max-width: 1200px; margin-top: 20px;">
+                <div class="panel__title-group">
+                    <h2 class="panel__title">SELECTION_PROTOCOL</h2>
+                </div>
+                <button onclick="window.router.maps('screen-menu')" class="btn-action">[ VOLTAR ]</button>
+            </header>
+            <div class="level-grid" id="level-grid-container"></div>
         </div>
 
         <!-- EDITOR SCREEN -->
