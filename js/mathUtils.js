@@ -9,6 +9,9 @@ export const Easing = {
     easeOutQuad: function(t) {
         return t * (2 - t);
     },
+    easeInCubic: function(t) {
+        return t * t * t;
+    },
     easeInOutQuad: function(t) {
         return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
     },
