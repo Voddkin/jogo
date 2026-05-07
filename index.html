@@ -8,72 +8,104 @@
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
-    <div id="app-container">
-        <!-- Canvas container for flexible aspect ratio letterboxing -->
-        <div id="canvas-wrapper">
-            <canvas id="gameCanvas"></canvas>
 
-            <!-- Overlay for Level Complete -->
-            <div id="overlay-message" class="hidden">
-                <h1 id="overlay-text">Level Complete!</h1>
-                <button id="btn-next-level" class="btn-action">Next Level</button>
+    <main id="voddkin-os">
+
+        <!-- MAIN MENU SCREEN -->
+        <div id="screen-menu" class="screen screen--active">
+            <h1 class="glitch" data-text="VODDKIN LABS">VODDKIN LABS</h1>
+            <nav class="main-nav">
+                <button onclick="window.router.maps('screen-game')" class="nav-btn">INICIAR SISTEMA</button>
+                <button onclick="window.router.maps('screen-level-select')" class="nav-btn">SELEÇÃO DE NÍVEIS</button>
+                <button onclick="window.router.maps('screen-editor')" class="nav-btn">EDITOR DE LÓGICA</button>
+            </nav>
+            <div class="os-footer">v1.0.0-core // unauthorized access logged</div>
+        </div>
+
+        <!-- GAMEPLAY SCREEN -->
+        <div id="screen-game" class="screen">
+            <div id="app-container">
+                <!-- Canvas container for flexible aspect ratio letterboxing -->
+                <div id="canvas-wrapper">
+                    <canvas id="gameCanvas"></canvas>
+
+                    <!-- Overlay for Level Complete -->
+                    <div id="overlay-message" class="hidden">
+                        <h1 id="overlay-text">Level Complete!</h1>
+                        <button id="btn-next-level" class="btn-action">Next Level</button>
+                        <button onclick="window.router.maps('screen-menu')" class="btn-action" style="margin-top: 10px;">Menu Principal</button>
+                    </div>
+                </div>
+
+                <aside id="command-console" class="panel">
+                    <header class="panel__header">
+                        <div class="panel__title-group">
+                            <h2 class="panel__title">Sequence_Editor</h2>
+                            <span id="level-name" class="panel__subtitle">Loading...</span>
+                        </div>
+                        <div class="panel__status" id="execution-status">IDLE</div>
+                    </header>
+
+                    <section class="toolbar">
+                        <div class="toolbar__group" id="btn-group-move">
+                            <button class="btn btn--action-forward" onclick="window.addCommand('MOVE_FORWARD')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M213.66,122.34a8,8,0,0,1-11.32,11.32L136,67.31V216a8,8,0,0,1-16,0V67.31L53.66,133.66a8,8,0,0,1-11.32-11.32l80-80a8,8,0,0,1,11.32,0Z"></path></svg>
+                            </button>
+                            <button class="btn btn--action-backward" onclick="window.addCommand('MOVE_BACKWARD')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M205.66,149.66l-80,80a8,8,0,0,1-11.32,0l-80-80a8,8,0,0,1,11.32-11.32L120,212.69V40a8,8,0,0,1,16,0V212.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
+                            </button>
+                        </div>
+                        <div class="toolbar__group" id="btn-group-turn">
+                            <button class="btn btn--action-turn" onclick="window.addCommand('TURN_LEFT')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,196.4a8,8,0,1,1,11.8-10.8A79.44,79.44,0,0,0,128,208h1.07A80,80,0,0,0,128,48h-8.8l20.4,20.4a8,8,0,0,1-11.32,11.31l-34.34-34.34a8,8,0,0,1,0-11.32l34.34-34.34a8,8,0,0,1,11.32,11.32L119.2,32H128A96.11,96.11,0,0,1,224,128Z"></path></svg>
+                            </button>
+                            <button class="btn btn--action-turn" onclick="window.addCommand('TURN_RIGHT')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M193.9,196.4a8,8,0,1,1-11.8-10.8A79.44,79.44,0,0,0,128,208h-1.07A80,80,0,0,1,128,48h8.8L115.33,68.4a8,8,0,0,0,11.32,11.31l34.34-34.34a8,8,0,0,0,0-11.32l-34.34-34.34a8,8,0,0,0-11.32,11.32L136.8,32H128A96,96,0,0,0,128,224h1.29A95.38,95.38,0,0,0,193.9,196.4Z"></path></svg>
+                            </button>
+                        </div>
+                        <div class="toolbar__group" id="btn-group-action">
+                            <button class="btn btn--action-emp" onclick="window.addCommand('ACTIVATE_EMP')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"></path></svg>
+                            </button>
+                        </div>
+
+                        <div class="toolbar__group toolbar__group--right">
+                            <button onclick="window.resetLevel()" class="btn btn--secondary" title="Reset Level">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M232,128A104,104,0,1,1,85.25,33.05a8,8,0,0,1,6.85,14.47A88,88,0,1,0,216,128a8,8,0,0,1,16,0Zm-8-48a8,8,0,0,0-8,8v32h-32a8,8,0,0,0,0,16h40a8,8,0,0,0,8-8V88A8,8,0,0,0,224,80Z"></path></svg>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="timeline">
+                        <div class="timeline__track" id="timeline-track">
+                            <div class="timeline__placeholder">Timeline is empty. Waiting for input...</div>
+                        </div>
+                    </section>
+
+                    <footer class="panel__footer">
+                        <button class="btn btn--primary" id="btn-execute" onclick="window.executeQueue()">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M228.23,114.78l-144-88A16,16,0,0,0,60,40V216a16,16,0,0,0,24.23,13.78l144-88A16,16,0,0,0,228.23,114.78ZM76,204.62V51.38L201.35,128Z"></path></svg>
+                            EXECUTE
+                        </button>
+                        <button class="btn btn--danger" id="btn-clear" onclick="window.clearQueue()">CLEAR</button>
+                    </footer>
+                </aside>
             </div>
         </div>
 
-        <aside id="command-console" class="panel">
-            <header class="panel__header">
-                <div class="panel__title-group">
-                    <h2 class="panel__title">Sequence_Editor</h2>
-                    <span id="level-name" class="panel__subtitle">Loading...</span>
-                </div>
-                <div class="panel__status" id="execution-status">IDLE</div>
-            </header>
+        <!-- LEVEL SELECT SCREEN -->
+        <div id="screen-level-select" class="screen">
+            <h1 class="glitch" data-text="Em Breve">Em Breve</h1>
+            <button onclick="window.router.maps('screen-menu')" class="btn-action" style="margin-top:20px;">Voltar</button>
+        </div>
 
-            <section class="toolbar">
-                <div class="toolbar__group" id="btn-group-move">
-                    <button class="btn btn--action-forward" onclick="window.addCommand('MOVE_FORWARD')">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M213.66,122.34a8,8,0,0,1-11.32,11.32L136,67.31V216a8,8,0,0,1-16,0V67.31L53.66,133.66a8,8,0,0,1-11.32-11.32l80-80a8,8,0,0,1,11.32,0Z"></path></svg>
-                    </button>
-                    <button class="btn btn--action-backward" onclick="window.addCommand('MOVE_BACKWARD')">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M205.66,149.66l-80,80a8,8,0,0,1-11.32,0l-80-80a8,8,0,0,1,11.32-11.32L120,212.69V40a8,8,0,0,1,16,0V212.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
-                    </button>
-                </div>
-                <div class="toolbar__group" id="btn-group-turn">
-                    <button class="btn btn--action-turn" onclick="window.addCommand('TURN_LEFT')">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,196.4a8,8,0,1,1,11.8-10.8A79.44,79.44,0,0,0,128,208h1.07A80,80,0,0,0,128,48h-8.8l20.4,20.4a8,8,0,0,1-11.32,11.31l-34.34-34.34a8,8,0,0,1,0-11.32l34.34-34.34a8,8,0,0,1,11.32,11.32L119.2,32H128A96.11,96.11,0,0,1,224,128Z"></path></svg>
-                    </button>
-                    <button class="btn btn--action-turn" onclick="window.addCommand('TURN_RIGHT')">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M193.9,196.4a8,8,0,1,1-11.8-10.8A79.44,79.44,0,0,0,128,208h-1.07A80,80,0,0,1,128,48h8.8L115.33,68.4a8,8,0,0,0,11.32,11.31l34.34-34.34a8,8,0,0,0,0-11.32l-34.34-34.34a8,8,0,0,0-11.32,11.32L136.8,32H128A96,96,0,0,0,128,224h1.29A95.38,95.38,0,0,0,193.9,196.4Z"></path></svg>
-                    </button>
-                </div>
-                <div class="toolbar__group" id="btn-group-action">
-                    <button class="btn btn--action-emp" onclick="window.addCommand('ACTIVATE_EMP')">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"></path></svg>
-                    </button>
-                </div>
+        <!-- EDITOR SCREEN -->
+        <div id="screen-editor" class="screen">
+            <h1 class="glitch" data-text="Em Breve">Em Breve</h1>
+            <button onclick="window.router.maps('screen-menu')" class="btn-action" style="margin-top:20px;">Voltar</button>
+        </div>
 
-                <div class="toolbar__group toolbar__group--right">
-                    <button onclick="window.resetLevel()" class="btn btn--secondary" title="Reset Level">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M232,128A104,104,0,1,1,85.25,33.05a8,8,0,0,1,6.85,14.47A88,88,0,1,0,216,128a8,8,0,0,1,16,0Zm-8-48a8,8,0,0,0-8,8v32h-32a8,8,0,0,0,0,16h40a8,8,0,0,0,8-8V88A8,8,0,0,0,224,80Z"></path></svg>
-                    </button>
-                </div>
-            </section>
-
-            <section class="timeline">
-                <div class="timeline__track" id="timeline-track">
-                    <div class="timeline__placeholder">Timeline is empty. Waiting for input...</div>
-                </div>
-            </section>
-
-            <footer class="panel__footer">
-                <button class="btn btn--primary" id="btn-execute" onclick="window.executeQueue()">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M228.23,114.78l-144-88A16,16,0,0,0,60,40V216a16,16,0,0,0,24.23,13.78l144-88A16,16,0,0,0,228.23,114.78ZM76,204.62V51.38L201.35,128Z"></path></svg>
-                    EXECUTE
-                </button>
-                <button class="btn btn--danger" id="btn-clear" onclick="window.clearQueue()">CLEAR</button>
-            </footer>
-        </aside>
-    </div>
+    </main>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
