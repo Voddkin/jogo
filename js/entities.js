@@ -1,3 +1,6 @@
+import { Easing, lerp } from './mathUtils.js';
+import { MathLUT } from './mathLUT.js';
+
 // Tile types
 export const TILE_EMPTY = 0;
 export const TILE_WALL = 1;
@@ -128,7 +131,6 @@ export class GridMap {
         if (tile === TILE_KEY_RED) {
             this.redGatesOpen = true;
             this.setTile(x, y, TILE_EMPTY); // consume key
-            console.log("Red Key collected. Red Gates opened!");
         }
         // Button is handled by checking if robot is on it or EMP covers it
     }
@@ -140,12 +142,12 @@ export class GridMap {
 
         if (tile === TILE_ABYSS) {
             ctx.fillStyle = '#020202';
-            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.fillRect(px, py, tileSize + 0.5, tileSize + 0.5);
             return;
         }
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(px, py, tileSize, tileSize);
+        ctx.fillRect(px, py, tileSize + 0.5, tileSize + 0.5);
 
         ctx.strokeStyle = '#2d2d3d';
         ctx.lineWidth = 1;
@@ -226,17 +228,17 @@ export class GridMap {
             gradient.addColorStop(0, '#5a5a6a');
             gradient.addColorStop(1, '#2a2a35');
             ctx.fillStyle = gradient;
-            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.fillRect(px, py, tileSize + 0.5, tileSize + 0.5);
 
             ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.fillRect(px, py, tileSize, 2);
+            ctx.fillRect(px, py, tileSize + 0.5, 2);
 
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
             ctx.shadowOffsetY = 0;
         } else if (tile === TILE_GATE_RED) {
             ctx.fillStyle = this.redGatesOpen ? '#2a1111' : '#ff2222';
-            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.fillRect(px, py, tileSize + 0.5, tileSize + 0.5);
             if (!this.redGatesOpen) {
                 ctx.strokeStyle = '#550000';
                 ctx.lineWidth = 4;
@@ -288,11 +290,11 @@ export class GridMap {
 
                 if (tile === TILE_ROLLER_RIGHT || tile === TILE_ROLLER_LEFT || tile === TILE_ROLLER_UP || tile === TILE_ROLLER_DOWN) {
                     ctx.fillStyle = '#2a2a35';
-                    ctx.fillRect(px, py, tileSize, tileSize);
+                    ctx.fillRect(px, py, tileSize + 0.5, tileSize + 0.5);
 
                     ctx.save();
                     ctx.beginPath();
-                    ctx.rect(px, py, tileSize, tileSize);
+                    ctx.rect(px, py, tileSize + 0.5, tileSize + 0.5);
                     ctx.clip();
 
                     ctx.strokeStyle = '#d97706';
@@ -358,8 +360,6 @@ export class GridMap {
         }
     }
 }
-
-import { Easing, lerp, MathLUT } from './mathUtils.js';
 
 export class DynamicEntity {
     constructor(startX, startY) {
@@ -751,7 +751,7 @@ export class PushableBox extends DynamicEntity {
         ctx.scale(this.scaleX, this.scaleY);
 
         // Shadow
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowColor = 'rgba(20, 10, 30, 0.7)';
         ctx.shadowBlur = 15;
         ctx.shadowOffsetY = 8;
 
