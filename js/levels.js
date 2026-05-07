@@ -1,75 +1,60 @@
-export const LEVELS = [
+/**
+ * Level Database
+ *
+ * Legend:
+ * 'W' = Wall
+ * '.' = Empty Floor
+ * 'E' = Exit
+ * 'R>' = Roller Right, 'R<' = Left, 'R^' = Up, 'Rv' = Down
+ * 'I' = Ice
+ * 'B' = Button
+ * 'L' = Laser
+ * 'G_R' = Gate Red
+ * 'K_R' = Key Red
+ * 'WA' / 'WB' = Warps
+ * 'F' = Fragile
+ * 'C' = Crate (Pushable Box)
+ */
+
+export const LEVEL_DATABASE = [
     {
         id: 1,
-        name: "Level 01: Hello World",
-        width: 6,
-        height: 3,
-        robotStart: { x: 1, y: 1, dir: 0 }, // 0 = East
+        name: "Level 01: Initiation",
+        grid: { width: 6, height: 4 },
+        spawn: { x: 1, y: 1, direction: 0 }, // 0 = East
         layout: [
-            ['W', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', '.', '.', 'E', 'W'],
-            ['W', 'W', 'W', 'W', 'W', 'W']
+            "WWWWWW",
+            "W...EW",
+            "W.W..W",
+            "WWWWWW"
         ]
     },
     {
         id: 2,
-        name: "Level 02: Red Key",
-        width: 7,
-        height: 5,
-        robotStart: { x: 1, y: 3, dir: 0 }, // 0 = East
+        name: "Level 02: Corridors & Keys",
+        grid: { width: 8, height: 6 },
+        spawn: { x: 1, y: 4, direction: 0 }, // East
         layout: [
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', '.', '.', 'G_R', 'E', 'W'],
-            ['W', '.', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', 'K_R', '.', '.', '.', 'W'],
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W']
+            "WWWWWWWW",
+            "W.K_R...EW",
+            "W.WWG_R.WW",
+            "W......W",
+            "W.WWWW.W",
+            "WWWWWWWW"
         ]
     },
     {
         id: 3,
-        name: "Level 03: EMP",
-        width: 8,
-        height: 5,
-        robotStart: { x: 1, y: 2, dir: 0 }, // 0 = East
+        name: "Level 03: Sokoban Protocol",
+        grid: { width: 8, height: 6 },
+        spawn: { x: 1, y: 4, direction: 0 }, // East
         layout: [
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', '.', '.', 'W', 'E', '.', 'W'],
-            ['W', '.', 'B', '.', 'L', '.', '.', 'W'],
-            ['W', '.', '.', '.', 'W', 'W', 'W', 'W'],
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W']
-        ]
-    },
-    {
-        id: 4,
-        name: "Level 04: Advanced Mechanics",
-        width: 9,
-        height: 9,
-        robotStart: { x: 1, y: 7, dir: 0 },
-        layout: [
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', 'I', 'I', 'I', 'WB', 'W', 'E', 'W'],
-            ['W', '.', 'W', 'W', 'W', 'W', 'W', '.', 'W'],
-            ['W', '.', 'W', 'R<', 'R<', 'R^', 'W', 'F', 'W'],
-            ['W', '.', 'W', 'Rv', 'W', 'R^', 'W', 'F', 'W'],
-            ['W', '.', 'W', 'R>', 'R>', 'R^', 'W', 'F', 'W'],
-            ['W', '.', 'W', 'W', 'W', 'W', 'W', '.', 'W'],
-            ['W', '.', 'WA', 'W', '.', '.', '.', '.', 'W'],
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W', 'W']
-        ]
-    },
-    {
-        id: 5,
-        name: "Level 05: Sokoban",
-        width: 8,
-        height: 6,
-        robotStart: { x: 1, y: 4, dir: 0 },
-        layout: [
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', 'B', 'W', '.', 'E', '.', 'W'],
-            ['W', '.', '.', 'L', '.', '.', '.', 'W'],
-            ['W', '.', 'C', 'W', 'W', 'W', 'W', 'W'],
-            ['W', '.', '.', '.', '.', '.', '.', 'W'],
-            ['W', 'W', 'W', 'W', 'W', 'W', 'W', 'W']
+            "WWWWWWWW",
+            "W.B.W.EW",
+            "W...L..W",
+            "W.C.WWWW",
+            "W......W",
+            "WWWWWWWW"
         ]
     }
 ];
