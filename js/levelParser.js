@@ -2,7 +2,7 @@ import {
     TILE_EMPTY, TILE_WALL, TILE_EXIT, TILE_BUTTON, TILE_LASER,
     TILE_KEY_RED, TILE_GATE_RED, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT,
     TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_ICE, TILE_WARP_A, TILE_WARP_B,
-    TILE_FRAGILE, TILE_HOLE
+    TILE_FRAGILE, TILE_HOLE, TILE_ABYSS, MASK_SOLID, MASK_TRIGGER, MASK_CORRUPTED
 } from './entities.js';
 
 /**
@@ -19,7 +19,7 @@ export class LevelParser {
      * @returns {Object} { gridMatrix: number[][], initialBoxes: Object[] }
      */
     static parse(levelData) {
-        const gridMatrix = [];
+        const grid1D = new Uint32Array(levelData.grid.width * levelData.grid.height);
         const initialBoxes = [];
 
         const warpPairs = {
@@ -27,8 +27,9 @@ export class LevelParser {
             'B': []
         };
 
+        let index = 0;
+
         for (let y = 0; y < levelData.grid.height; y++) {
-            const row = [];
             // Some cells might take more than 1 char (e.g. 'R>'), so we need to match carefully
             // However, looking at the layout format: "W.K_R..EW"
             // Wait, standard strings in JS split by character. But we have tokens like "K_R".
@@ -54,39 +55,44 @@ export class LevelParser {
                 else if (i + 1 < str.length && str.substring(i, i+2) === 'WA') { token = 'WA'; i += 1; }
                 else if (i + 1 < str.length && str.substring(i, i+2) === 'WB') { token = 'WB'; i += 1; }
 
+                let type = TILE_EMPTY;
+                let mask = 0;
+
                 switch(token) {
-                    case 'W': row.push(TILE_WALL); break;
-                    case '.': row.push(TILE_EMPTY); break;
-                    case 'E': row.push(TILE_EXIT); break;
-                    case 'R>': row.push(TILE_ROLLER_RIGHT); break;
-                    case 'R<': row.push(TILE_ROLLER_LEFT); break;
-                    case 'R^': row.push(TILE_ROLLER_UP); break;
-                    case 'Rv': row.push(TILE_ROLLER_DOWN); break;
-                    case 'I': row.push(TILE_ICE); break;
-                    case 'B': row.push(TILE_BUTTON); break;
-                    case 'L': row.push(TILE_LASER); break;
-                    case 'K_R': row.push(TILE_KEY_RED); break;
-                    case 'G_R': row.push(TILE_GATE_RED); break;
+                    case 'W': type = TILE_WALL; mask |= MASK_SOLID; break;
+                    case '.': type = TILE_EMPTY; break;
+                    case 'E': type = TILE_EXIT; break;
+                    case 'R>': type = TILE_ROLLER_RIGHT; break;
+                    case 'R<': type = TILE_ROLLER_LEFT; break;
+                    case 'R^': type = TILE_ROLLER_UP; break;
+                    case 'Rv': type = TILE_ROLLER_DOWN; break;
+                    case 'I': type = TILE_ICE; break;
+                    case 'B': type = TILE_BUTTON; mask |= MASK_TRIGGER; break;
+                    case 'L': type = TILE_LASER; break;
+                    case 'K_R': type = TILE_KEY_RED; break;
+                    case 'G_R': type = TILE_GATE_RED; break;
                     case 'WA':
-                        row.push(TILE_WARP_A);
+                        type = TILE_WARP_A;
                         warpPairs['A'].push({x,y});
                         break;
                     case 'WB':
-                        row.push(TILE_WARP_B);
+                        type = TILE_WARP_B;
                         warpPairs['B'].push({x,y});
                         break;
-                    case 'F': row.push(TILE_FRAGILE); break;
-                    case 'H': row.push(TILE_HOLE); break;
+                    case 'F': type = TILE_FRAGILE; break;
+                    case 'H': type = TILE_HOLE; mask |= MASK_SOLID; break;
                     case 'C':
-                        row.push(TILE_EMPTY);
+                        type = TILE_EMPTY;
                         initialBoxes.push({x, y});
                         break;
-                    default: row.push(TILE_EMPTY); break;
+                    default: type = TILE_EMPTY; break;
                 }
+
+                grid1D[index] = type | mask;
+                index++;
                 x++;
                 i++;
             }
-            gridMatrix.push(row);
         }
 
         // Strict mapping validation for Warp Nodes
@@ -100,6 +106,6 @@ export class LevelParser {
         const triggers = levelData.triggers || [];
         const receivers = levelData.receivers || [];
 
-        return { gridMatrix, initialBoxes, triggers, receivers };
+        return { grid1D, initialBoxes, triggers, receivers };
     }
 }

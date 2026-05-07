@@ -58,14 +58,17 @@ export class UIManager {
 
     initDelegation() {
         // Event delegation for individual block deletion
-        this.track.addEventListener('click', (e) => {
-            const deleteBtn = e.target.closest('.cmd-block__delete');
-            if (deleteBtn) {
-                const block = deleteBtn.closest('.cmd-block');
-                const index = parseInt(block.dataset.index, 10);
-                this.game.removeCommandAt(index);
-            }
-        });
+        this.handleTrackClick = this.handleTrackClick.bind(this);
+        this.track.addEventListener('click', this.handleTrackClick);
+    }
+
+    handleTrackClick(e) {
+        const deleteBtn = e.target.closest('.cmd-block__delete');
+        if (deleteBtn) {
+            const block = deleteBtn.closest('.cmd-block');
+            const index = parseInt(block.dataset.index, 10);
+            this.game.removeCommandAt(index);
+        }
     }
 
     /**
@@ -83,19 +86,26 @@ export class UIManager {
      * Called by the Game state machine.
      */
     syncTimeline(commandQueue) {
-        const visibleCommands = commandQueue.filter(cmd => !cmd.startsWith('SYS_'));
+        const visibleCommands = [];
+        for (let i = 0, len = commandQueue.length; i < len; i++) {
+            if (!commandQueue[i].startsWith('SYS_')) {
+                visibleCommands.push(commandQueue[i]);
+            }
+        }
 
         // Handle limits
         if (visibleCommands.length >= this.MAX_COMMANDS) {
-            this.toolbarButtons.forEach(btn => {
+            for (let i = 0, len = this.toolbarButtons.length; i < len; i++) {
+                const btn = this.toolbarButtons[i];
                 btn.classList.add('is-disabled');
                 btn.title = "Limite de sequência atingido";
-            });
+            }
         } else if (this.game.state === 'IDLE') {
-            this.toolbarButtons.forEach(btn => {
+            for (let i = 0, len = this.toolbarButtons.length; i < len; i++) {
+                const btn = this.toolbarButtons[i];
                 btn.classList.remove('is-disabled');
                 btn.title = "";
-            });
+            }
         }
 
         // Handle Empty State
@@ -153,12 +163,13 @@ export class UIManager {
      */
     clearTimeline() {
         const blocks = this.track.querySelectorAll('.cmd-block:not(.is-removing)');
-        blocks.forEach(block => {
+        for (let i = 0, len = blocks.length; i < len; i++) {
+            const block = blocks[i];
             block.classList.add('is-removing');
             block.addEventListener('transitionend', () => {
                 if (block.parentNode) block.parentNode.removeChild(block);
             }, { once: true });
-        });
+        }
 
         setTimeout(() => {
             this.track.innerHTML = '';
@@ -182,7 +193,9 @@ export class UIManager {
             this.statusText.innerText = "RUNNING";
             this.statusText.className = "panel__status is-running";
 
-            this.toolbarButtons.forEach(btn => btn.classList.add('is-disabled'));
+            for (let i = 0, len = this.toolbarButtons.length; i < len; i++) {
+                this.toolbarButtons[i].classList.add('is-disabled');
+            }
             this.btnExecute.classList.add('is-disabled');
             this.btnClear.classList.add('is-disabled');
             this.track.classList.add('is-locked');
@@ -190,7 +203,9 @@ export class UIManager {
             this.statusText.innerText = state;
             this.statusText.className = "panel__status";
 
-            this.toolbarButtons.forEach(btn => btn.classList.remove('is-disabled'));
+            for (let i = 0, len = this.toolbarButtons.length; i < len; i++) {
+                this.toolbarButtons[i].classList.remove('is-disabled');
+            }
             this.btnExecute.classList.remove('is-disabled');
             this.btnClear.classList.remove('is-disabled');
             this.track.classList.remove('is-locked');
@@ -199,12 +214,13 @@ export class UIManager {
 
     highlightExecutingBlock(index) {
         const blocks = this.track.querySelectorAll('.cmd-block');
-        blocks.forEach((el, idx) => {
+        for (let i = 0, len = blocks.length; i < len; i++) {
+            const el = blocks[i];
             el.classList.remove('is-executing');
-            if (idx < index) {
+            if (i < index) {
                 el.classList.add('is-executed');
             }
-        });
+        }
 
         const activeEl = this.track.querySelector(`.cmd-block[data-index="${index}"]`);
         if (activeEl) {
@@ -219,10 +235,11 @@ export class UIManager {
 
     resetHighlights() {
         const blocks = this.track.querySelectorAll('.cmd-block');
-        blocks.forEach(el => {
+        for (let i = 0, len = blocks.length; i < len; i++) {
+            const el = blocks[i];
             el.classList.remove('is-executing');
             el.classList.remove('is-executed');
-        });
+        }
         this.track.scrollTo({ left: 0, behavior: 'smooth' });
     }
 }

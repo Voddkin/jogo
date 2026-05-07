@@ -17,61 +17,104 @@ export const TILE_FRAGILE = 14;
 export const TILE_HOLE = 15;
 export const TILE_ABYSS = 16;
 
+// Bitmasks for GridMap Uint32Array
+export const MASK_ID = 0xFF; // First 8 bits
+export const MASK_SOLID = 1 << 8; // Bit 9
+export const MASK_TRIGGER = 1 << 9; // Bit 10
+export const MASK_CORRUPTED = 1 << 10; // Bit 11
+export const MASK_DIRTY = 1 << 11; // Bit 12 for dirty rects tracking
+
 export class GridMap {
     /**
-     * @param {Object} parsedData { gridMatrix, initialBoxes }
+     * @param {Object} parsedData { grid1D, initialBoxes, cols, rows }
      */
     constructor(cols, rows, parsedData) {
         this.cols = cols;
         this.rows = rows;
         this.initialBoxes = parsedData.initialBoxes;
-        this.initialGridData = parsedData.gridMatrix;
-        this.grid = JSON.parse(JSON.stringify(this.initialGridData));
+        this.initialGridData = parsedData.grid1D;
+
+        // Fast 1D Uint32Array
+        this.grid = new Uint32Array(this.cols * this.rows);
+        this.reset();
+
         this.redGatesOpen = false;
         this.buttonPressed = false;
+
+        // Pre-allocated dirty rects array queue (max capacity = grid size)
+        this.dirtyRects = new Uint16Array(this.cols * this.rows * 2); // stores [x,y, x,y...]
+        this.dirtyCount = 0;
+    }
+
+    getIndex(x, y) {
+        return y * this.cols + x;
     }
 
     findTile(type) {
-        for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-                if (this.grid[y][x] === type) {
-                    return {x, y};
-                }
+        const len = this.cols * this.rows;
+        for (let i = 0; i < len; i++) {
+            if ((this.grid[i] & MASK_ID) === type) {
+                return { x: i % this.cols, y: Math.floor(i / this.cols) };
             }
         }
         return null;
     }
 
     reset() {
-        this.grid = JSON.parse(JSON.stringify(this.initialGridData));
+        this.grid.set(this.initialGridData);
         this.redGatesOpen = false;
         this.buttonPressed = false;
+        this.dirtyCount = 0;
     }
 
     getTile(x, y) {
         if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) {
-            return TILE_WALL; // Out of bounds acts as a wall
+            return TILE_WALL;
         }
-        return this.grid[y][x];
+        return this.grid[this.getIndex(x, y)] & MASK_ID;
     }
 
     setTile(x, y, type) {
         if (x >= 0 && x < this.cols && y >= 0 && y < this.rows) {
-            this.grid[y][x] = type;
+            const index = this.getIndex(x, y);
+
+            // Re-evaluate solid mask based on type
+            let isSolid = (type === TILE_WALL || type === TILE_HOLE || type === TILE_ABYSS) ? MASK_SOLID : 0;
+
+            // Keep trigger and corrupted state if needed, but normally overwrite
+            this.grid[index] = type | isSolid | MASK_DIRTY;
+
+            this.markDirty(x, y);
         }
     }
 
+    markDirty(x, y) {
+        // Simple queue addition. To prevent duplicates we could check,
+        // but for now simple push is fast.
+        this.dirtyRects[this.dirtyCount * 2] = x;
+        this.dirtyRects[this.dirtyCount * 2 + 1] = y;
+        this.dirtyCount++;
+    }
+
     isWalkable(x, y) {
-        const tile = this.getTile(x, y);
-        if (tile === TILE_WALL || tile === TILE_HOLE || tile === TILE_ABYSS) return false;
+        if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) return false;
+
+        const index = this.getIndex(x, y);
+        const cell = this.grid[index];
+        const tile = cell & MASK_ID;
+
+        if ((cell & MASK_SOLID) !== 0) return false;
         if (tile === TILE_GATE_RED && !this.redGatesOpen) return false;
 
         if (tile === TILE_LASER) {
-            let laserActive = !this.buttonPressed; // default legacy fallback
+            let laserActive = !this.buttonPressed;
             if (this.receiversState) {
-                const rec = this.receiversState.find(r => r.x === x && r.y === y && r.type === 'laser');
-                if (rec) {
-                    laserActive = !rec.active;
+                for (let i = 0, len = this.receiversState.length; i < len; i++) {
+                    const r = this.receiversState[i];
+                    if (r.x === x && r.y === y && r.type === 'laser') {
+                        laserActive = !r.active;
+                        break;
+                    }
                 }
             }
             if (laserActive) return false;
@@ -90,37 +133,158 @@ export class GridMap {
         // Button is handled by checking if robot is on it or EMP covers it
     }
 
-    drawFloor(ctx, tileSize, offsetX, offsetY, time) {
-        ctx.save();
-        ctx.translate(offsetX, offsetY);
+    drawFloorSingle(ctx, x, y, tileSize, offsetX, offsetY, time = 0) {
+        const tile = this.getTile(x, y);
+        const px = offsetX + x * tileSize;
+        const py = offsetY + y * tileSize;
 
-        for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-                const tile = this.getTile(x, y);
-                const px = x * tileSize;
-                const py = y * tileSize;
+        if (tile === TILE_ABYSS) {
+            ctx.fillStyle = '#020202';
+            ctx.fillRect(px, py, tileSize, tileSize);
+            return;
+        }
 
-                if (tile === TILE_WALL) continue; // Draw walls later
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(px, py, tileSize, tileSize);
 
-                if (tile === TILE_ABYSS) {
-                    // Just draw black void without grid
-                    ctx.fillStyle = '#020202';
-                    ctx.fillRect(px, py, tileSize, tileSize);
-                    continue; // Skip the rest of floor drawing
-                }
+        ctx.strokeStyle = '#2d2d3d';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, tileSize, tileSize);
 
-                // --- Draw base floor (Cyber-Minimalist) ---
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Transparent dark base
-                ctx.fillRect(px, py, tileSize, tileSize);
+        if (tile === TILE_KEY_RED) {
+            ctx.shadowColor = '#ff2222';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(px + tileSize / 2 - 2, py + tileSize / 2 - 2, tileSize * 0.04, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (tile === TILE_EXIT) {
+            ctx.shadowColor = '#00ffaa';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#00ffaa';
+            ctx.fillRect(px + tileSize*0.2, py + tileSize*0.2, tileSize * 0.6, tileSize * 0.6);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px + tileSize*0.2, py + tileSize*0.2, tileSize * 0.6, tileSize * 0.6);
+            ctx.lineWidth = 1;
+        } else if (tile === TILE_ICE) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'overlay';
+            ctx.fillStyle = '#e0ffff';
+            ctx.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(px + tileSize * 0.2, py + tileSize * 0.2);
+            ctx.lineTo(px + tileSize * 0.8, py + tileSize * 0.8);
+            ctx.moveTo(px + tileSize * 0.7, py + tileSize * 0.1);
+            ctx.lineTo(px + tileSize * 0.1, py + tileSize * 0.9);
+            ctx.moveTo(px + tileSize * 0.4, py);
+            ctx.lineTo(px + tileSize * 0.4, py + tileSize);
+            ctx.stroke();
+            ctx.restore();
+        } else if (tile === TILE_FRAGILE) {
+            ctx.fillStyle = '#3a3a2a';
+            ctx.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+            ctx.strokeStyle = '#ff3366';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#ff3366';
+            ctx.shadowBlur = 5;
+            ctx.beginPath();
+            ctx.moveTo(px + tileSize * 0.1, py + tileSize * 0.3);
+            ctx.lineTo(px + tileSize * 0.4, py + tileSize * 0.5);
+            ctx.lineTo(px + tileSize * 0.8, py + tileSize * 0.2);
+            ctx.moveTo(px + tileSize * 0.4, py + tileSize * 0.5);
+            ctx.lineTo(px + tileSize * 0.6, py + tileSize * 0.9);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        } else if (tile === TILE_HOLE) {
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(px, py, tileSize, tileSize);
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = '#111';
+            ctx.strokeRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
+        }
+    }
 
-                // Subtle technological grid strokes
-                ctx.strokeStyle = '#2d2d3d';
+    drawWallSingle(ctx, x, y, tileSize, offsetX, offsetY) {
+        const tile = this.getTile(x, y);
+        const px = offsetX + x * tileSize;
+        const py = offsetY + y * tileSize;
+
+        if (tile === TILE_WALL) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetY = 4;
+
+            const gradient = ctx.createLinearGradient(px, py, px, py + tileSize);
+            gradient.addColorStop(0, '#5a5a6a');
+            gradient.addColorStop(1, '#2a2a35');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(px, py, tileSize, tileSize);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.fillRect(px, py, tileSize, 2);
+
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+        } else if (tile === TILE_GATE_RED) {
+            ctx.fillStyle = this.redGatesOpen ? '#2a1111' : '#ff2222';
+            ctx.fillRect(px, py, tileSize, tileSize);
+            if (!this.redGatesOpen) {
+                ctx.strokeStyle = '#550000';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
                 ctx.lineWidth = 1;
-                ctx.strokeRect(px, py, tileSize, tileSize);
+            }
+        } else if (tile === TILE_BUTTON) {
+            let pressed = this.buttonPressed;
+            if (this.triggersState) {
+                for (let i = 0, len = this.triggersState.length; i < len; i++) {
+                    const trig = this.triggersState[i];
+                    if (trig.x === x && trig.y === y) {
+                        pressed = trig.active;
+                        break;
+                    }
+                }
+            }
+            const btnColor = pressed ? '#00ffaa' : '#225544';
+            ctx.shadowColor = pressed ? '#00ffaa' : 'transparent';
+            ctx.shadowBlur = pressed ? 15 : 0;
+            ctx.fillStyle = btnColor;
+            ctx.beginPath();
+            let drawY = py + tileSize / 2;
+            if (pressed) drawY += tileSize * 0.05;
+            ctx.arc(px + tileSize / 2, drawY, tileSize * 0.24, 0, Math.PI * 2);
+            ctx.fill();
 
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetY = 0;
+            ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+        }
+    }
+
+    drawDynamicFloors(ctx, tileSize, offsetX, offsetY, time, vLeft, vRight, vTop, vBottom) {
+        // Frustum culling limits
+        const startX = Math.max(0, Math.floor((vLeft - offsetX) / tileSize));
+        const endX = Math.min(this.cols - 1, Math.floor((vRight - offsetX) / tileSize));
+        const startY = Math.max(0, Math.floor((vTop - offsetY) / tileSize));
+        const endY = Math.min(this.rows - 1, Math.floor((vBottom - offsetY) / tileSize));
+
+        for (let y = startY; y <= endY; y++) {
+            for (let x = startX; x <= endX; x++) {
+                const tile = this.getTile(x, y);
+                const px = offsetX + x * tileSize;
+                const py = offsetY + y * tileSize;
 
                 if (tile === TILE_ROLLER_RIGHT || tile === TILE_ROLLER_LEFT || tile === TILE_ROLLER_UP || tile === TILE_ROLLER_DOWN) {
                     ctx.fillStyle = '#2a2a35';
@@ -129,9 +293,9 @@ export class GridMap {
                     ctx.save();
                     ctx.beginPath();
                     ctx.rect(px, py, tileSize, tileSize);
-                    ctx.clip(); // Clip pattern within tile
+                    ctx.clip();
 
-                    ctx.strokeStyle = '#d97706'; // warning stripes
+                    ctx.strokeStyle = '#d97706';
                     ctx.lineWidth = tileSize * 0.15;
 
                     const speed = 0.05;
@@ -161,196 +325,41 @@ export class GridMap {
                     }
                     ctx.stroke();
                     ctx.restore();
-                } else if (tile === TILE_KEY_RED) {
-                    ctx.shadowColor = '#ff2222';
-                    ctx.shadowBlur = 10;
-                    ctx.fillStyle = '#ff4444';
-                    ctx.beginPath();
-                    ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize * 0.16, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(px + tileSize / 2 - 2, py + tileSize / 2 - 2, tileSize * 0.04, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (tile === TILE_GATE_RED) {
-                    ctx.fillStyle = this.redGatesOpen ? '#2a1111' : '#ff2222';
-                    ctx.fillRect(px, py, tileSize, tileSize);
-                    if (!this.redGatesOpen) {
-                        ctx.strokeStyle = '#550000';
-                        ctx.lineWidth = 4;
-                        ctx.strokeRect(px + 4, py + 4, tileSize - 8, tileSize - 8);
-                        ctx.lineWidth = 1;
-                    }
-                } else if (tile === TILE_LASER) {
-                    let laserActive = !this.buttonPressed;
-                    if (this.receiversState) {
-                        const rec = this.receiversState.find(r => r.x === x && r.y === y && r.type === 'laser');
-                        if (rec) laserActive = !rec.active;
-                    }
-                    if (laserActive) {
-                        ctx.shadowColor = '#ff0055';
-                        ctx.shadowBlur = 15;
-                        ctx.fillStyle = '#ff0055';
-                        ctx.fillRect(px + tileSize / 2 - 3, py, 6, tileSize);
-
-                        ctx.shadowBlur = 0;
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(px + tileSize / 2 - 1, py, 2, tileSize);
-                    }
-                } else if (tile === TILE_BUTTON) {
-                    let pressed = this.buttonPressed;
-                    if (this.triggersState) {
-                        const trig = this.triggersState.find(t => t.x === x && t.y === y);
-                        if (trig) pressed = trig.active;
-                    }
-                    const btnColor = pressed ? '#00ffaa' : '#225544';
-                    ctx.shadowColor = pressed ? '#00ffaa' : 'transparent';
-                    ctx.shadowBlur = pressed ? 15 : 0;
-                    ctx.fillStyle = btnColor;
-                    ctx.beginPath();
-                    let drawY = py + tileSize / 2;
-                    if (pressed) drawY += tileSize * 0.05;
-                    ctx.arc(px + tileSize / 2, drawY, tileSize * 0.24, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                } else if (tile === TILE_EXIT) {
-                    ctx.shadowColor = '#00ffaa';
-                    ctx.shadowBlur = 15;
-                    ctx.fillStyle = '#00ffaa';
-                    ctx.fillRect(px + tileSize*0.2, py + tileSize*0.2, tileSize * 0.6, tileSize * 0.6);
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(px + tileSize*0.2, py + tileSize*0.2, tileSize * 0.6, tileSize * 0.6);
-                    ctx.lineWidth = 1;
-                } else if (tile === TILE_ICE) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'overlay';
-                    ctx.fillStyle = '#e0ffff';
-                    ctx.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
-
-                    // Abstract crystalline lines
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 0.5;
-                    ctx.beginPath();
-                    ctx.moveTo(px + tileSize * 0.2, py + tileSize * 0.2);
-                    ctx.lineTo(px + tileSize * 0.8, py + tileSize * 0.8);
-                    ctx.moveTo(px + tileSize * 0.7, py + tileSize * 0.1);
-                    ctx.lineTo(px + tileSize * 0.1, py + tileSize * 0.9);
-                    ctx.moveTo(px + tileSize * 0.4, py);
-                    ctx.lineTo(px + tileSize * 0.4, py + tileSize);
-                    ctx.stroke();
-                    ctx.restore();
                 } else if (tile === TILE_WARP_A || tile === TILE_WARP_B) {
-                    const color = tile === TILE_WARP_A ? '#a855f7' : '#ff00aa'; // Roxo Quântico for A
+                    const color = tile === TILE_WARP_A ? '#a855f7' : '#ff00aa';
 
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
                     ctx.translate(px + tileSize / 2, py + tileSize / 2);
-                    ctx.rotate(time * 0.001); // rotate slowly
+                    ctx.rotate(time * 0.001);
 
                     ctx.strokeStyle = color;
                     ctx.lineWidth = 2;
                     ctx.shadowColor = color;
                     ctx.shadowBlur = 15;
 
-                    // Archimedes Spiral
                     ctx.beginPath();
                     for(let theta = 0; theta <= 4 * Math.PI; theta += 0.1) {
                         const r = (theta / (4 * Math.PI)) * (tileSize / 2 - 2);
-                        const sx = r * Math.cos(theta);
-                        const sy = r * Math.sin(theta);
+                        const sx = r * MathLUT.cos(theta);
+                        const sy = r * MathLUT.sin(theta);
                         if (theta === 0) ctx.moveTo(sx, sy);
                         else ctx.lineTo(sx, sy);
                     }
                     ctx.stroke();
 
-                    // Core glow
                     ctx.fillStyle = color;
                     ctx.beginPath();
                     ctx.arc(0, 0, tileSize * 0.1, 0, Math.PI * 2);
                     ctx.fill();
-
                     ctx.restore();
-                } else if (tile === TILE_FRAGILE) {
-                    ctx.fillStyle = '#3a3a2a';
-                    ctx.fillRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
-
-                    // Luminescent cracks
-                    ctx.strokeStyle = '#ff3366';
-                    ctx.lineWidth = 1.5;
-                    ctx.shadowColor = '#ff3366';
-                    ctx.shadowBlur = 5;
-                    ctx.beginPath();
-                    ctx.moveTo(px + tileSize * 0.1, py + tileSize * 0.3);
-                    ctx.lineTo(px + tileSize * 0.4, py + tileSize * 0.5);
-                    ctx.lineTo(px + tileSize * 0.8, py + tileSize * 0.2);
-                    ctx.moveTo(px + tileSize * 0.4, py + tileSize * 0.5);
-                    ctx.lineTo(px + tileSize * 0.6, py + tileSize * 0.9);
-                    ctx.stroke();
-
-                    ctx.shadowBlur = 0;
-                } else if (tile === TILE_HOLE) {
-                    ctx.fillStyle = '#050505';
-                    ctx.fillRect(px, py, tileSize, tileSize);
-                    ctx.shadowColor = '#000000';
-                    ctx.shadowBlur = 10;
-                    ctx.shadowOffsetY = 0;
-                    ctx.strokeStyle = '#111';
-                    ctx.strokeRect(px + 2, py + 2, tileSize - 4, tileSize - 4);
-                }
-
-                // Clear shadows before next tile
-                ctx.shadowColor = 'transparent';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetY = 0;
-            }
-        }
-
-        ctx.restore();
-    }
-
-    drawWalls(ctx, tileSize, offsetX, offsetY) {
-        ctx.save();
-        ctx.translate(offsetX, offsetY);
-
-        for (let y = 0; y < this.rows; y++) {
-            for (let x = 0; x < this.cols; x++) {
-                const tile = this.getTile(x, y);
-                if (tile === TILE_WALL) {
-                    const px = x * tileSize;
-                    const py = y * tileSize;
-
-                    // Drop shadow for depth
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                    ctx.shadowBlur = 8;
-                    ctx.shadowOffsetY = 4;
-
-                    // Gradient block
-                    const gradient = ctx.createLinearGradient(px, py, px, py + tileSize);
-                    gradient.addColorStop(0, '#5a5a6a');
-                    gradient.addColorStop(1, '#2a2a35');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(px, py, tileSize, tileSize);
-
-                    // Highlight edge (beveling)
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-                    ctx.fillRect(px, py, tileSize, 2);
-
-                    // Reset shadow
-                    ctx.shadowColor = 'transparent';
-                    ctx.shadowBlur = 0;
-                    ctx.shadowOffsetY = 0;
                 }
             }
         }
-        ctx.restore();
     }
 }
 
-import { Easing, lerp } from './mathUtils.js';
+import { Easing, lerp, MathLUT } from './mathUtils.js';
 
 export class DynamicEntity {
     constructor(startX, startY) {
@@ -591,7 +600,7 @@ export class Robot extends DynamicEntity {
         ctx.translate(px, py);
 
         // Idle Trigonometry: Hover
-        let hoverY = Math.sin(this.time * 0.003) * 4;
+        let hoverY = MathLUT.sin(this.time * 0.003) * 4;
 
         // Anti-Grav Base (Draw BEFORE Hover Translate so it stays on floor)
         ctx.save();
@@ -614,8 +623,8 @@ export class Robot extends DynamicEntity {
         ctx.rotate(rotation);
 
         // Idle Trigonometry: Breathing Squash/Stretch combined with Kinematics
-        let breathScaleX = 1 + Math.cos(this.time * 0.002) * 0.02;
-        let breathScaleY = 1 + Math.sin(this.time * 0.002) * 0.03;
+        let breathScaleX = 1 + MathLUT.cos(this.time * 0.002) * 0.02;
+        let breathScaleY = 1 + MathLUT.sin(this.time * 0.002) * 0.03;
         ctx.scale(this.scaleX * breathScaleX, this.scaleY * breathScaleY);
 
         // Cyber-Ears
@@ -667,7 +676,7 @@ export class Robot extends DynamicEntity {
         ctx.fill();
 
         // Glowing LEDs
-        let visorAlpha = 0.6 + Math.sin(this.time * 0.01) * 0.4;
+        let visorAlpha = 0.6 + MathLUT.sin(this.time * 0.01) * 0.4;
         ctx.globalAlpha = visorAlpha;
         ctx.shadowColor = visorColor;
         ctx.shadowBlur = 10;
@@ -788,7 +797,7 @@ export class PushableBox extends DynamicEntity {
             if (i % 2 === 0) {
                 // generate a pseudo-random stable frequency based on id characters
                 const idVal = this.id.charCodeAt(4) || 1;
-                const alpha = (Math.sin(this.time * 0.005 * idVal) + 1) / 2;
+                const alpha = (MathLUT.sin(this.time * 0.005 * idVal) + 1) / 2;
                 ctx.globalAlpha = 0.3 + alpha * 0.7;
             } else {
                 ctx.globalAlpha = 1.0;
