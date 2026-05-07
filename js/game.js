@@ -86,7 +86,7 @@ export class Game {
 
     loadLevel(index) {
         if (index >= LEVEL_DATABASE.length) {
-            alert("Congratulations! All levels completed.");
+            this.uiManager.showToast("Congratulations! All levels completed.", "SUCCESS");
             return;
         }
 
@@ -406,9 +406,7 @@ export class Game {
             this.state = GAME_STATES.FAILED;
             this.uiManager.updateStateStatus(this.state);
             this.camera.addTrauma(1.0);
-            const overlay = document.getElementById('overlay-message');
-            overlay.classList.remove('hidden');
-            document.getElementById('overlay-text').innerText = "STACK OVERFLOW";
+            this.uiManager.showToast("STACK OVERFLOW: Detetado ciclo infinito de movimento vetorial.", "ERROR");
             return;
         }
 
@@ -641,7 +639,8 @@ export class Game {
     }
 
     gameLoop(timestamp) {
-        const dt = timestamp - this.lastTime;
+        // Hard clamp delta time to prevent tunneling/NaN from extreme lag or tab-switching (max ~32ms per frame)
+        const dt = Math.min(timestamp - this.lastTime, 32);
         this.lastTime = timestamp;
 
         this.update(dt);
@@ -689,6 +688,14 @@ export class Game {
                 for (const ent of this.dynamicEntities) {
                     if (ent.isAnimating || ent.moveType !== 'IDLE' || ent.physicsState !== 'IDLE') {
                         ent.updateAnimation(dt);
+
+                        // NaN Safeguard
+                        if (isNaN(ent.visualX) || isNaN(ent.visualY)) {
+                            ent.visualX = ent.x;
+                            ent.visualY = ent.y;
+                            ent.isAnimating = false;
+                        }
+
                         isAnyAnimating = isAnyAnimating || ent.isAnimating;
                         if (!ent.isAnimating && ent.moveType !== 'IDLE') {
                             ent.finishAnimation();
@@ -821,14 +828,22 @@ export class Game {
                 const px = offsetX + rec.x * ts;
                 const py = offsetY + rec.y * ts;
 
+                // Progressive Bloom: Halo pass
+                ctxLighting.globalAlpha = 0.3;
                 ctxLighting.shadowColor = '#ff0055';
-                ctxLighting.shadowBlur = 15;
+                ctxLighting.shadowBlur = 20;
                 ctxLighting.fillStyle = '#ff0055';
-                ctxLighting.fillRect(px + ts / 2 - 3, py, 6, ts);
+                ctxLighting.fillRect(px + ts / 2 - 4, py, 8, ts);
 
+                // Core pass
+                ctxLighting.globalAlpha = 1.0;
                 ctxLighting.shadowBlur = 0;
+                ctxLighting.globalCompositeOperation = 'source-over';
                 ctxLighting.fillStyle = '#ffffff';
                 ctxLighting.fillRect(px + ts / 2 - 1, py, 2, ts);
+
+                // Reset composite back to lighter for next laser halo
+                ctxLighting.globalCompositeOperation = 'lighter';
             }
         }
     }

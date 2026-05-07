@@ -3,43 +3,60 @@ import { TILE_EMPTY, TILE_WALL, TILE_GATE_RED, TILE_BUTTON } from './entities.js
 export class Renderer {
     constructor(canvasId, game) {
         this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on main canvas background
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
         this.game = game;
+
+        this.ctx.imageSmoothingEnabled = false;
 
         // Multi-Canvas Architecture
         this.layerBackground = document.createElement('canvas');
         this.ctxBg = this.layerBackground.getContext('2d', { willReadFrequently: true });
+        this.ctxBg.imageSmoothingEnabled = false;
 
         this.layerStaticGeometry = document.createElement('canvas');
         this.ctxStatic = this.layerStaticGeometry.getContext('2d', { willReadFrequently: true });
+        this.ctxStatic.imageSmoothingEnabled = false;
 
         this.layerLighting = document.createElement('canvas');
         this.ctxLighting = this.layerLighting.getContext('2d');
+        this.ctxLighting.imageSmoothingEnabled = false;
     }
 
     resize(width, height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
+        const dpr = window.devicePixelRatio || 1;
 
-        // Match offscreen canvases to game map dimensions, not screen dimensions
-        // Actually, we can make them match the map exactly: cols * tileSize x rows * tileSize
-        // And then drawImage with a source rect based on camera
-        // Or make them screen size and redraw entirely? The prompt says "cacheados em memoria".
-        // Let's cache the entire map.
+        // CSS display size
+        this.canvas.style.width = width + 'px';
+        this.canvas.style.height = height + 'px';
+
+        // Actual internal render buffer size
+        this.canvas.width = width * dpr;
+        this.canvas.height = height * dpr;
+
+        // Normalize coordinates to CSS pixels
+        this.ctx.scale(dpr, dpr);
+        this.ctx.imageSmoothingEnabled = false;
     }
 
     initLevelCache(cols, rows, tileSize) {
+        const dpr = window.devicePixelRatio || 1;
         const w = cols * tileSize;
         const h = rows * tileSize;
 
-        this.layerBackground.width = w;
-        this.layerBackground.height = h;
+        this.layerBackground.width = w * dpr;
+        this.layerBackground.height = h * dpr;
+        this.ctxBg.scale(dpr, dpr);
+        this.ctxBg.imageSmoothingEnabled = false;
 
-        this.layerStaticGeometry.width = w;
-        this.layerStaticGeometry.height = h;
+        this.layerStaticGeometry.width = w * dpr;
+        this.layerStaticGeometry.height = h * dpr;
+        this.ctxStatic.scale(dpr, dpr);
+        this.ctxStatic.imageSmoothingEnabled = false;
 
-        this.layerLighting.width = w;
-        this.layerLighting.height = h;
+        this.layerLighting.width = w * dpr;
+        this.layerLighting.height = h * dpr;
+        this.ctxLighting.scale(dpr, dpr);
+        this.ctxLighting.imageSmoothingEnabled = false;
 
         this.tileSize = tileSize;
         this.mapWidth = w;
@@ -76,8 +93,9 @@ export class Renderer {
         this.ctxStatic.clearRect(px - padding, py - padding, this.tileSize + padding * 2, this.tileSize + padding * 2);
 
         // --- Background Layer ---
+        // Expand slightly to prevent bleeding
         this.ctxBg.fillStyle = '#111116';
-        this.ctxBg.fillRect(px, py, this.tileSize, this.tileSize);
+        this.ctxBg.fillRect(px, py, this.tileSize + 0.5, this.tileSize + 0.5);
 
         // Tile specific background
         this.game.gridMap.drawFloorSingle(this.ctxBg, x, y, this.tileSize, 0, 0, 0);

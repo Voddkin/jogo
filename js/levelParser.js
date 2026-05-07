@@ -4,6 +4,7 @@ import {
     TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_ICE, TILE_WARP_A, TILE_WARP_B,
     TILE_FRAGILE, TILE_HOLE, TILE_ABYSS, MASK_SOLID, MASK_TRIGGER, MASK_CORRUPTED
 } from './entities.js';
+import { Logger } from './logger.js';
 
 /**
  * LevelParser
@@ -98,8 +99,7 @@ export class LevelParser {
         // Strict mapping validation for Warp Nodes
         for (const [key, nodes] of Object.entries(warpPairs)) {
             if (nodes.length > 0 && nodes.length !== 2) {
-                console.error(`COMPILATION ERROR: Warp Node pair '${key}' has ${nodes.length} nodes. Exactly 2 are required.`);
-                alert(`COMPILATION ERROR: Warp Node pair '${key}' has ${nodes.length} nodes. Exactly 2 are required.`);
+                Logger.error(`COMPILATION ERROR: Warp Node pair '${key}' has ${nodes.length} nodes. Exactly 2 are required.`);
             }
         }
 
