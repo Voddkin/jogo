@@ -60,9 +60,86 @@ class Game {
     }
 
     updateQueueDisplay() {
-        // Filter out internal movement commands so the user doesn't see "SLIDE" or "FORCE_MOVE"
+        if (this.isExecuting) return; // Don't rebuild DOM during execution
+
+        const container = document.getElementById('queue-display');
+
         const displayQueue = this.commandQueue.filter(cmd => !cmd.startsWith('SYS_'));
-        document.getElementById('queue-display').innerText = displayQueue.join(' -> ') || 'Queue is empty';
+
+        if (displayQueue.length === 0) {
+            container.innerHTML = '';
+            container.innerText = 'Timeline is empty';
+            container.className = 'empty';
+            return;
+        }
+
+        if (container.classList.contains('empty')) {
+            container.innerHTML = '';
+            container.classList.remove('empty');
+        }
+
+        const currentBlocks = container.querySelectorAll('.cmd-block');
+
+        // If the internal queue is smaller than the DOM queue (e.g., after execution), rebuild
+        if (currentBlocks.length > displayQueue.length) {
+            container.innerHTML = '';
+            // Reset block count so loop rebuilds everything
+            currentBlocks.length = 0;
+        }
+
+        // Add only the newly added element to avoid re-triggering popIn animations for the whole list
+        const startIndex = currentBlocks.length > displayQueue.length ? 0 : currentBlocks.length;
+
+        for (let i = startIndex; i < displayQueue.length; i++) {
+            const cmd = displayQueue[i];
+            const block = document.createElement('div');
+            block.classList.add('cmd-block');
+            block.id = `cmd-idx-${i}`;
+
+            if (cmd === 'MOVE_FORWARD') {
+                block.classList.add('cmd-forward');
+                block.innerText = '⬆️';
+            } else if (cmd === 'MOVE_BACKWARD') {
+                block.classList.add('cmd-backward');
+                block.innerText = '⬇️';
+            } else if (cmd === 'TURN_LEFT') {
+                block.classList.add('cmd-left');
+                block.innerText = '🔄';
+            } else if (cmd === 'TURN_RIGHT') {
+                block.classList.add('cmd-right');
+                block.innerText = '🔄';
+            } else if (cmd === 'ACTIVATE_EMP') {
+                block.classList.add('cmd-emp');
+                block.innerText = '⚡';
+            }
+            container.appendChild(block);
+
+            // Scroll right
+            container.parentElement.scrollTo({ left: container.parentElement.scrollWidth, behavior: 'smooth' });
+        }
+    }
+
+    highlightActiveCommand(index) {
+        // Remove active class from all
+        document.querySelectorAll('.cmd-block').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        // Mark previous as executed
+        for(let i = 0; i < index; i++) {
+            const oldEl = document.getElementById(`cmd-idx-${i}`);
+            if (oldEl) oldEl.classList.add('executed');
+        }
+
+        // Highlight current
+        const el = document.getElementById(`cmd-idx-${index}`);
+        if (el) {
+            el.classList.add('active');
+            // Scroll container to keep active element in view
+            const container = document.getElementById('timeline-container');
+            const scrollPos = el.offsetLeft - container.clientWidth / 2 + el.clientWidth / 2;
+            container.scrollTo({ left: scrollPos, behavior: 'smooth' });
+        }
     }
 
     resetLevel() {
@@ -79,7 +156,9 @@ class Game {
     executeQueue() {
         if (this.isExecuting || this.commandQueue.length === 0) return;
         this.isExecuting = true;
+        this.uiExecIndex = 0;
         this.timeSinceLastCommand = 0;
+        this.highlightActiveCommand(this.uiExecIndex);
     }
 
     getBoxAt(x, y) {
@@ -93,7 +172,12 @@ class Game {
         }
 
         const cmd = this.commandQueue.shift();
-        this.updateQueueDisplay();
+
+        // If it's a user command, update the UI highlight
+        if (!cmd.startsWith('SYS_') && cmd !== 'NEXT_LEVEL') {
+            this.highlightActiveCommand(this.uiExecIndex);
+            this.uiExecIndex++;
+        }
 
         let tx = this.robot.x;
         let ty = this.robot.y;
