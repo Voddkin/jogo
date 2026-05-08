@@ -134,7 +134,11 @@ export class Game {
 
     startSession() {
         this.state = GAME_STATES.IDLE;
-        this.loadLevel(0); // Load level 0 on start
+        // If we are starting a session directly from the main menu, load level 0
+        // (if it was triggered via level select, loadLevel was already called, but we can safely call it if robot doesn't exist)
+        if (!this.robot) {
+            this.loadLevel(0);
+        }
     }
 
     pauseSession() {
@@ -384,6 +388,29 @@ export class Game {
             this.state = GAME_STATES.LEVEL_COMPLETE;
             this.uiManager.updateStateStatus(this.state);
             document.getElementById('overlay-message').classList.remove('hidden');
+
+            // Progression Update Hook
+            const currentId = LEVEL_DATABASE[this.currentLevelIndex].id;
+            const progress = window.SystemData.progress;
+
+            if (!progress.completedLevels.includes(currentId)) {
+                progress.completedLevels.push(currentId);
+            }
+
+            // Attempt to unlock next level
+            if (this.currentLevelIndex + 1 < LEVEL_DATABASE.length) {
+                const nextId = LEVEL_DATABASE[this.currentLevelIndex + 1].id;
+                if (!progress.unlockedLevels.includes(nextId)) {
+                    progress.unlockedLevels.push(nextId);
+                }
+            }
+
+            // Update lines of code
+            const commandCount = this.commandQueue.filter(c => !c.startsWith('SYS_') && c !== 'NEXT_LEVEL').length;
+            if (!progress.linesOfCode[currentId] || commandCount < progress.linesOfCode[currentId]) {
+                progress.linesOfCode[currentId] = commandCount;
+            }
+
             return;
         } else if (newTileType === TILE_EXIT && !this.executionQueue.includes('NEXT_LEVEL')) {
             this.executionQueue = ['NEXT_LEVEL'];

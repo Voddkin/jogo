@@ -1,13 +1,42 @@
 import { Game } from './game.js';
 import { ScreenRouter } from './screenRouter.js';
 import { AudioEngine } from './audioEngine.js';
+import { LevelSelectUI } from './levelSelectUI.js';
 
 let game;
 let router;
 
+// Mock Data Architecture for Progression
+window.SystemData = {
+    progress: {
+        unlockedLevels: [1],
+        completedLevels: [],
+        linesOfCode: {}
+    }
+};
+
 window.onload = () => {
     game = new Game('gameCanvas');
     router = new ScreenRouter(game);
+
+    // Global Error Handlers (Anti-Blackscreen)
+    const handleFatalError = (msg) => {
+        if (game && game.uiManager) {
+            game.uiManager.showToast(`SYSTEM FAILURE: ${msg}`, 'ERROR');
+        }
+        if (router && router.currentScreenId !== 'screen-menu') {
+            router.maps('screen-menu');
+        }
+    };
+
+    window.onerror = function(message, source, lineno, colno, error) {
+        handleFatalError(message);
+        return false; // Let it log to console still if open
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+        handleFatalError(event.reason);
+    });
 
     // Global bindings for inline HTML onclick handlers
     window.addCommand = (cmd) => game.addCommand(cmd);
@@ -18,6 +47,11 @@ window.onload = () => {
 
     document.getElementById('btn-next-level').addEventListener('click', () => {
         game.loadLevel(game.currentLevelIndex + 1);
+    });
+
+    document.getElementById('btn-return-select').addEventListener('click', () => {
+        LevelSelectUI.renderLevelGrid();
+        router.maps('screen-level-select');
     });
 
     // AudioEngine hookups
@@ -32,4 +66,6 @@ window.onload = () => {
         navBtns[i].addEventListener('mouseenter', () => AudioEngine.playSFX('hover'));
         navBtns[i].addEventListener('click', () => AudioEngine.playSFX('select'));
     }
+
+    LevelSelectUI.init(game, router);
 };
