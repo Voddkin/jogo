@@ -205,7 +205,27 @@ export class Game {
 
         let cmd = this.executionQueue.shift();
 
-        if (!cmd.startsWith('SYS_') && cmd !== 'NEXT_LEVEL') {
+        // The Stasis Protocol (EMP OVERLOAD Interception)
+        const locationalCommands = [
+            'MOVE_FORWARD', 'MOVE_BACKWARD', 'TURN_LEFT', 'TURN_RIGHT',
+            'SYS_SLIDE_FORWARD', 'SYS_SLIDE_BACKWARD'
+        ];
+
+        if (this.robot.empActive && locationalCommands.includes(cmd)) {
+            // Fail miserably due to EMP Overload
+            this.robot.moveType = 'BUMP';
+            this.camera.addTrauma(0.5);
+
+            // Generate 20 red/electric particles
+            for (let i = 0; i < 20; i++) {
+                this.particlePool.spawn(this.robot.x, this.robot.y, '#ff0033', 0.8, 1.2);
+            }
+            if (this.audioEngine) this.audioEngine.playSFX('error');
+
+            cmd = 'STASIS_FAILED'; // Override command to prevent execution
+        }
+
+        if (!cmd.startsWith('SYS_') && cmd !== 'NEXT_LEVEL' && cmd !== 'STASIS_FAILED') {
             this.uiManager.highlightExecutingBlock(this.uiExecIndex);
             this.uiExecIndex++;
         }
