@@ -19,6 +19,25 @@ window.onload = () => {
     game = new Game('gameCanvas');
     router = new ScreenRouter(game);
 
+    // Global Error Handlers (Anti-Blackscreen)
+    const handleFatalError = (msg) => {
+        if (game && game.uiManager) {
+            game.uiManager.showToast(`SYSTEM FAILURE: ${msg}`, 'ERROR');
+        }
+        if (router && router.currentScreenId !== 'screen-menu') {
+            router.maps('screen-menu');
+        }
+    };
+
+    window.onerror = function(message, source, lineno, colno, error) {
+        handleFatalError(message);
+        return false; // Let it log to console still if open
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+        handleFatalError(event.reason);
+    });
+
     // Global bindings for inline HTML onclick handlers
     window.addCommand = (cmd) => game.addCommand(cmd);
     window.executeQueue = () => game.executeQueue();

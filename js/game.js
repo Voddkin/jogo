@@ -134,7 +134,11 @@ export class Game {
 
     startSession() {
         this.state = GAME_STATES.IDLE;
-        // Level loading is now handled explicitly by the LevelSelectUI before this hook fires
+        // If we are starting a session directly from the main menu, load level 0
+        // (if it was triggered via level select, loadLevel was already called, but we can safely call it if robot doesn't exist)
+        if (!this.robot) {
+            this.loadLevel(0);
+        }
     }
 
     pauseSession() {
