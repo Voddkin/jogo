@@ -4,6 +4,7 @@ import { LevelParser } from './levelParser.js';
 import { UIManager } from './uiManager.js';
 import { Camera } from './camera.js';
 import { ParticlePool } from './particles.js';
+import { AudioEngine } from './audioEngine.js';
 import { Renderer } from './renderer.js';
 
 const GAME_STATES = Object.freeze({
@@ -218,9 +219,9 @@ export class Game {
 
             // Generate 20 red/electric particles
             for (let i = 0; i < 20; i++) {
-                this.particlePool.spawn(this.robot.x, this.robot.y, '#ff0033', 0.8, 1.2);
+                this.particlePool.spawn(this.robot.x, this.robot.y, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, 0.8, '#ff0033', 1.2);
             }
-            if (this.audioEngine) this.audioEngine.playSFX('error');
+            AudioEngine.playSFX('error');
 
             cmd = 'STASIS_FAILED'; // Override command to prevent execution
         }
