@@ -612,7 +612,7 @@ export class Game {
                     ent.targetY = destY;
                     boxPhysicsTriggered = true;
                 }
-            } else if (false) {
+            }
         }
 
         if (boxPhysicsTriggered) {
