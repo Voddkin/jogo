@@ -1,3 +1,4 @@
+"use strict";
 import {
     TILE_EMPTY, TILE_WALL, TILE_EXIT, TILE_BUTTON, TILE_LASER,
     TILE_KEY_RED, TILE_GATE_RED, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT,
@@ -12,6 +13,72 @@ import { Logger } from './logger.js';
  * data structures consumable by GridMap and Game engines.
  */
 export class LevelParser {
+    /**
+     * Validates the integrity of the entire LEVEL_DATABASE.
+     * @param {Array} database - The LEVEL_DATABASE array
+     * @returns {Object} { valid: boolean, error: string }
+     */
+    static validateDatabaseIntegrity(database) {
+        for (let i = 0; i < database.length; i++) {
+            const level = database[i];
+
+            // Validate optimalCommands
+            if (typeof level.optimalCommands !== 'number' || level.optimalCommands <= 0) {
+                return { valid: false, error: `Level ${level.id} (${level.name}) has invalid or missing optimalCommands: ${level.optimalCommands}` };
+            }
+
+            // Validate grid dimensions match layout length
+            if (!level.layout || level.layout.length !== level.grid.height) {
+                return { valid: false, error: `Level ${level.id} (${level.name}) height mismatch. Expected ${level.grid.height}, got ${level.layout ? level.layout.length : 'undefined'}` };
+            }
+
+            // Validate row token widths and collect stats
+            let warpACount = 0;
+            let warpBCount = 0;
+
+            for (let y = 0; y < level.layout.length; y++) {
+                let str = level.layout[y];
+                let tokens = 0;
+                let j = 0;
+                while(j < str.length) {
+                    let token = str[j];
+                    if (j + 2 < str.length && str.substring(j, j+3) === 'K_R') { token = 'K_R'; j += 2; }
+                    else if (j + 2 < str.length && str.substring(j, j+3) === 'G_R') { token = 'G_R'; j += 2; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'R>') { token = 'R>'; j += 1; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'R<') { token = 'R<'; j += 1; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'R^') { token = 'R^'; j += 1; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'Rv') { token = 'Rv'; j += 1; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'WA') { token = 'WA'; j += 1; }
+                    else if (j + 1 < str.length && str.substring(j, j+2) === 'WB') { token = 'WB'; j += 1; }
+
+                    if (token === 'WA') warpACount++;
+                    if (token === 'WB') warpBCount++;
+
+                    // Check if spawn is inside a solid wall
+                    if (level.spawn && level.spawn.x === tokens && level.spawn.y === y) {
+                        if (token === 'W' || token === 'H') {
+                            return { valid: false, error: `Level ${level.id} (${level.name}) spawns the Robot inside a solid tile: ${token} at (${tokens}, ${y})` };
+                        }
+                    }
+
+                    tokens++;
+                    j++;
+                }
+
+                if (tokens !== level.grid.width) {
+                    return { valid: false, error: `Level ${level.id} (${level.name}) row ${y} width mismatch. Expected ${level.grid.width}, got ${tokens}` };
+                }
+            }
+
+            // Validate Warp Node pairs
+            if ((warpACount > 0 || warpBCount > 0) && (warpACount !== 1 || warpBCount !== 1)) {
+                return { valid: false, error: `Level ${level.id} (${level.name}) has orphan Warp Nodes. Found WA: ${warpACount}, WB: ${warpBCount}. Must be exactly 1 pair.` };
+            }
+        }
+
+        return { valid: true, error: null };
+    }
+
 
     /**
      * Parses the layout array of strings into a 2D array of tile constants.

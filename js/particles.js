@@ -1,3 +1,4 @@
+"use strict";
 export class ParticlePool {
     constructor(poolSize = 1000) {
         this.pool = [];

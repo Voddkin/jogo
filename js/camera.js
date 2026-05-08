@@ -1,3 +1,4 @@
+"use strict";
 import { lerp } from './mathUtils.js';
 
 export class Camera {

@@ -1,3 +1,4 @@
+"use strict";
 import { TILE_EMPTY, TILE_WALL, TILE_GATE_RED, TILE_BUTTON } from './entities.js';
 
 export class Renderer {

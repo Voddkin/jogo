@@ -1,3 +1,4 @@
+"use strict";
 export class AudioEngine {
     static initialized = false;
     static context = null;
@@ -24,6 +25,7 @@ export class AudioEngine {
 
         const now = this.context.currentTime;
 
+
         if (type === 'hover') {
             osc.type = 'sine';
             osc.frequency.setValueAtTime(1200, now);
@@ -39,6 +41,20 @@ export class AudioEngine {
             gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.start(now);
             osc.stop(now + 0.1);
+        } else if (type === 'error') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
         }
+
+        osc.onended = () => {
+            osc.disconnect();
+            gainNode.disconnect();
+        };
+
     }
 }

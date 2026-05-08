@@ -1,3 +1,4 @@
+"use strict";
 import { Easing, lerp } from './mathUtils.js';
 import { MathLUT } from './mathLUT.js';
 
