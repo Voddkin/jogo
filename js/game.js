@@ -627,6 +627,12 @@ export class Game {
         if (this.executionQueue.length === 0) {
             this.state = GAME_STATES.IDLE;
             this.uiManager.updateStateStatus(this.state);
+            // AUTO-FLUSH: Smart Clear
+            if (this.commandQueue.length > 0) {
+                this.commandQueue = [];
+                this.uiExecIndex = 0;
+                this.uiManager.renderTimeline(this.commandQueue);
+            }
         } else {
             this.state = GAME_STATES.EXECUTING;
         }
