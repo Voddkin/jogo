@@ -1,7 +1,11 @@
+"use strict";
 import { Game } from './game.js';
 import { ScreenRouter } from './screenRouter.js';
 import { AudioEngine } from './audioEngine.js';
 import { LevelSelectUI } from './levelSelectUI.js';
+import { LevelParser } from './levelParser.js';
+import { LEVEL_DATABASE } from './levels.js';
+
 
 let game;
 let router;
@@ -15,7 +19,38 @@ window.SystemData = {
     }
 };
 
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 window.onload = () => {
+    const validation = LevelParser.validateDatabaseIntegrity(LEVEL_DATABASE);
+    if (!validation.valid) {
+        Logger.error("FATAL ERROR: " + validation.error);
+        const errToast = document.createElement('div');
+        errToast.style.position = 'absolute';
+        errToast.style.top = '10px';
+        errToast.style.left = '50%';
+        errToast.style.transform = 'translateX(-50%)';
+        errToast.style.background = '#ff0033';
+        errToast.style.color = '#fff';
+        errToast.style.padding = '10px 20px';
+        errToast.style.fontFamily = 'monospace';
+        errToast.style.zIndex = '9999';
+        errToast.innerText = "BOOT HALTED: " + validation.error;
+        document.body.appendChild(errToast);
+        return; // Abort game initialization
+    }
+
     game = new Game('gameCanvas');
     router = new ScreenRouter(game);
 
@@ -68,4 +103,14 @@ window.onload = () => {
     }
 
     LevelSelectUI.init(game, router);
+
+    window.addEventListener('resize', debounce(() => {
+        if (game) {
+            game.resizeCanvas();
+            if (router) {
+                LevelSelectUI.renderLevelGrid(); // Re-render grid layout on resize
+            }
+        }
+    }, 200));
+
 };

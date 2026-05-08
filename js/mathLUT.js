@@ -1,3 +1,4 @@
+"use strict";
 const LUT_SIZE = 3600;
 const RAD_TO_INDEX = LUT_SIZE / (2 * Math.PI);
 

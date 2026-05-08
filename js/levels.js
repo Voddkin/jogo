@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Level Database
  *
@@ -17,7 +18,20 @@
  * 'H' = Hole/Abyss (Replaces F when walked over)
  */
 
-export const LEVEL_DATABASE = [
+
+// Deep Freeze to ensure Imutability
+function deepFreeze(object) {
+    const propNames = Object.getOwnPropertyNames(object);
+    for (let name of propNames) {
+        let value = object[name];
+        if (value && typeof value === "object") {
+            deepFreeze(value);
+        }
+    }
+    return Object.freeze(object);
+}
+
+export const LEVEL_DATABASE = deepFreeze([
     {
         id: 1,
         name: "Level 01: Boot Sequence",
@@ -1228,4 +1242,4 @@ export const LEVEL_DATABASE = [
             }
         ]
     }
-];
+]);

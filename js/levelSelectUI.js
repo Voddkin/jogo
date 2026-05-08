@@ -1,3 +1,4 @@
+"use strict";
 import { LEVEL_DATABASE } from './levels.js';
 import { AudioEngine } from './audioEngine.js';
 

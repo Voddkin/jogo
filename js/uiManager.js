@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Factory for creating SVG-based command blocks for the timeline.
  */

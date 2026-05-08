@@ -1,3 +1,4 @@
+"use strict";
 export const DEBUG_MODE = false;
 
 export class Logger {

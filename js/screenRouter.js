@@ -1,3 +1,4 @@
+"use strict";
 export class ScreenRouter {
     constructor(game) {
         this.game = game;

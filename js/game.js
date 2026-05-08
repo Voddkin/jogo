@@ -1,3 +1,4 @@
+"use strict";
 import { GridMap, Robot, PushableBox, TILE_BUTTON, TILE_EXIT, TILE_WARP_A, TILE_WARP_B, TILE_ICE, TILE_ROLLER_RIGHT, TILE_ROLLER_LEFT, TILE_ROLLER_UP, TILE_ROLLER_DOWN, TILE_FRAGILE, TILE_HOLE, TILE_ABYSS } from './entities.js';
 import { LEVEL_DATABASE } from './levels.js';
 import { LevelParser } from './levelParser.js';
@@ -527,7 +528,24 @@ export class Game {
             const ey = ent.y;
             const tile = this.gridMap.getTile(ex, ey);
 
-            if (tile === TILE_ABYSS && ent.physicsState !== 'FALLING') {
+            if (tile === TILE_FRAGILE && ent.physicsState !== 'FALLING') {
+                this.gridMap.setTile(ex, ey, TILE_ABYSS);
+                this.camera.addTrauma(0.3);
+                for (let p = 0; p < 15; p++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 0.2;
+                    this.particlePool.spawn(
+                        ex * this.tileSize + this.tileSize / 2,
+                        ey * this.tileSize + this.tileSize / 2,
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        Math.random() * 3 + 1, '#aaaaaa', 400
+                    );
+                }
+                // Fall through to abyss logically
+                ent.physicsState = 'FALLING';
+                ent.setTarget(ex, ey, 'IDLE');
+                boxPhysicsTriggered = true;
+            } else if (tile === TILE_ABYSS && ent.physicsState !== 'FALLING') {
                 // Box falls into abyss
                 ent.physicsState = 'FALLING';
                 ent.setTarget(ex, ey, 'IDLE'); // Just trigger animation for falling
@@ -549,6 +567,17 @@ export class Game {
                 this.gridMap.setTile(ex, ey, TILE_EMPTY);
 
                 boxPhysicsTriggered = true;
+            } else if ((tile === TILE_WARP_A || tile === TILE_WARP_B) && ent.physicsState !== 'FALLING') {
+                const destType = tile === TILE_WARP_A ? TILE_WARP_B : TILE_WARP_A;
+                const dest = this.gridMap.findTile(destType);
+                if (dest && !this.getBoxAt(dest.x, dest.y) && (this.robot.x !== dest.x || this.robot.y !== dest.y)) {
+                    // Instant warp
+                    ent.x = dest.x;
+                    ent.y = dest.y;
+                    ent.visualX = dest.x;
+                    ent.visualY = dest.y;
+                    this.camera.addTrauma(0.3);
+                }
             } else if (tile === TILE_ICE && ent.physicsState !== 'FALLING') {
                 const dirX = ent.lastDx;
                 const dirY = ent.lastDy;
@@ -559,24 +588,28 @@ export class Game {
                 } else {
                     ent.physicsState = 'IDLE';
                 }
-            } else if (tile === TILE_ROLLER_RIGHT) {
-                if (this.gridMap.isWalkable(ex + 1, ey) && !this.getBoxAt(ex + 1, ey) && (this.robot.x !== ex + 1 || this.robot.y !== ey)) {
-                    ent.setTarget(ex + 1, ey, 'MOVE');
-                    boxPhysicsTriggered = true;
+            } else if (tile === TILE_ROLLER_RIGHT || tile === TILE_ROLLER_LEFT || tile === TILE_ROLLER_UP || tile === TILE_ROLLER_DOWN) {
+                let destX = ex;
+                let destY = ey;
+                if (tile === TILE_ROLLER_RIGHT) destX++;
+                else if (tile === TILE_ROLLER_LEFT) destX--;
+                else if (tile === TILE_ROLLER_UP) destY--;
+                else if (tile === TILE_ROLLER_DOWN) destY++;
+
+                // Check deadlock (is another box targeting this same spot?)
+                let deadlock = false;
+                for (let j = 0; j < this.dynamicEntities.length; j++) {
+                    const other = this.dynamicEntities[j];
+                    if (other !== ent && other.targetX === destX && other.targetY === destY) {
+                        deadlock = true;
+                        break;
+                    }
                 }
-            } else if (tile === TILE_ROLLER_LEFT) {
-                if (this.gridMap.isWalkable(ex - 1, ey) && !this.getBoxAt(ex - 1, ey) && (this.robot.x !== ex - 1 || this.robot.y !== ey)) {
-                    ent.setTarget(ex - 1, ey, 'MOVE');
-                    boxPhysicsTriggered = true;
-                }
-            } else if (tile === TILE_ROLLER_UP) {
-                if (this.gridMap.isWalkable(ex, ey - 1) && !this.getBoxAt(ex, ey - 1) && (this.robot.x !== ex || this.robot.y !== ey - 1)) {
-                    ent.setTarget(ex, ey - 1, 'MOVE');
-                    boxPhysicsTriggered = true;
-                }
-            } else if (tile === TILE_ROLLER_DOWN) {
-                if (this.gridMap.isWalkable(ex, ey + 1) && !this.getBoxAt(ex, ey + 1) && (this.robot.x !== ex || this.robot.y !== ey + 1)) {
-                    ent.setTarget(ex, ey + 1, 'MOVE');
+
+                if (!deadlock && this.gridMap.isWalkable(destX, destY) && !this.getBoxAt(destX, destY) && (this.robot.x !== destX || this.robot.y !== destY)) {
+                    ent.setTarget(destX, destY, 'MOVE');
+                    ent.targetX = destX; // Store intended target
+                    ent.targetY = destY;
                     boxPhysicsTriggered = true;
                 }
             }
