@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voddkin Labs - V1 Core</title>
+    <title>Project FoxBot - Core V1</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
 
         <!-- MAIN MENU SCREEN -->
         <div id="screen-menu" class="screen screen--active">
-            <h1 class="glitch" data-text="VODDKIN LABS">VODDKIN LABS</h1>
+            <h1 class="glitch" data-text="PROJECT FOXBOT">PROJECT FOXBOT</h1>
             <nav class="main-nav">
                 <button onclick="window.router.maps('screen-game')" class="nav-btn">INICIAR SISTEMA</button>
                 <button onclick="window.router.maps('screen-level-select')" class="nav-btn">SELEÇÃO DE NÍVEIS</button>
@@ -31,17 +31,17 @@
 
                     <!-- Overlay for Level Complete -->
                     <div id="overlay-message" class="hidden">
-                        <h1 id="overlay-text">Level Complete!</h1>
-                        <button id="btn-next-level" class="btn-action">Next Level</button>
-                        <button id="btn-return-select" class="btn-action" style="margin-top: 10px;">[ RETURN TO SELECT ]</button>
+                        <h1 id="overlay-text">Nível Concluído!</h1>
+                        <button id="btn-next-level" class="btn-action">Próximo Nível</button>
+                        <button id="btn-return-select" class="btn-action" style="margin-top: 10px;">[ VOLTAR À SELEÇÃO ]</button>
                     </div>
                 </div>
 
                 <aside id="command-console" class="panel">
                     <header class="panel__header">
                         <div class="panel__title-group">
-                            <h2 class="panel__title">Sequence_Editor</h2>
-                            <span id="level-name" class="panel__subtitle">Loading...</span>
+                            <h2 class="panel__title">Editor_de_Sequência</h2>
+                            <span id="level-name" class="panel__subtitle">Carregando...</span>
                         </div>
                         <div class="panel__status" id="execution-status">IDLE</div>
                     </header>
@@ -64,7 +64,7 @@
                             </button>
                         </div>
                         <div class="toolbar__group" id="btn-group-action">
-                            <button class="btn btn--action-emp" onclick="window.addCommand('ACTIVATE_EMP')">
+                            <button class="btn btn--action-emp" onclick="window.addCommand('ACTIVATE_EMP')" title="Alternar Modo Sobrecarga" aria-label="Alternar Modo Sobrecarga">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.9l14.66-73.33a8,8,0,0,0-13.69-7l-112,120a8,8,0,0,0,3,13l57.63,21.61L88.16,238.43a8,8,0,0,0,13.69,7l112-120A8,8,0,0,0,215.79,118.17ZM109.37,214l10.47-52.38a8,8,0,0,0-5-9.06L62,132.71l84.62-90.66L136.16,94.43a8,8,0,0,0,5,9.06l52.8,19.8Z"></path></svg>
                             </button>
                         </div>
@@ -78,16 +78,17 @@
 
                     <section class="timeline">
                         <div class="timeline__track" id="timeline-track">
-                            <div class="timeline__placeholder">Timeline is empty. Waiting for input...</div>
+                            <div class="timeline__placeholder">Linha do tempo vazia. Aguardando comandos...</div>
                         </div>
                     </section>
 
                     <footer class="panel__footer">
                         <button class="btn btn--primary" id="btn-execute" onclick="window.executeQueue()">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M228.23,114.78l-144-88A16,16,0,0,0,60,40V216a16,16,0,0,0,24.23,13.78l144-88A16,16,0,0,0,228.23,114.78ZM76,204.62V51.38L201.35,128Z"></path></svg>
-                            EXECUTE
+                            EXECUTAR
                         </button>
-                        <button class="btn btn--danger" id="btn-clear" onclick="window.clearQueue()">CLEAR</button>
+                        <button class="btn btn--secondary" id="btn-undo" onclick="window.removeLastCommand()" style="margin-right: 10px;">DESFAZER</button>
+                        <button class="btn btn--danger" id="btn-clear" onclick="window.clearQueue()">LIMPAR TUDO</button>
                     </footer>
                 </aside>
             </div>

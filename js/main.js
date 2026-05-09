@@ -77,6 +77,7 @@ window.onload = () => {
     window.addCommand = (cmd) => game.addCommand(cmd);
     window.executeQueue = () => game.executeQueue();
     window.clearQueue = () => game.clearQueue();
+    window.removeLastCommand = () => { if (game) game.removeLastCommand(); };
     window.resetLevel = () => game.resetLevel();
     window.router = router;
 
@@ -103,6 +104,45 @@ window.onload = () => {
     }
 
     LevelSelectUI.init(game, router);
+
+    // Keyboard Controls
+    window.addEventListener('keydown', (e) => {
+        if (!game || router.currentScreenId !== 'screen-game') return;
+
+        switch (e.code) {
+            case 'ArrowUp':
+                e.preventDefault();
+                window.addCommand('MOVE_FORWARD');
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                window.addCommand('MOVE_BACKWARD');
+                break;
+            case 'ArrowLeft':
+                e.preventDefault();
+                window.addCommand('TURN_LEFT');
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                window.addCommand('TURN_RIGHT');
+                break;
+            case 'Space':
+                e.preventDefault();
+                window.addCommand('ACTIVATE_EMP');
+                break;
+            case 'Enter':
+                e.preventDefault();
+                window.executeQueue();
+                break;
+            case 'Backspace':
+                e.preventDefault();
+                if (window.removeLastCommand) {
+                    window.removeLastCommand();
+                }
+                break;
+        }
+    });
+
 
     window.addEventListener('resize', debounce(() => {
         if (game) {

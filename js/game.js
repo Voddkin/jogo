@@ -147,6 +147,12 @@ export class Game {
         this.state = GAME_STATES.STANDBY;
     }
 
+    removeLastCommand() {
+        if (this.state !== GAME_STATES.IDLE || this.commandQueue.length === 0) return;
+        this.commandQueue.pop();
+        if (this.uiManager) this.uiManager.syncTimeline(this.commandQueue);
+    }
+
     addCommand(cmd) {
         if (this.state !== GAME_STATES.IDLE) return;
 
@@ -627,6 +633,12 @@ export class Game {
         if (this.executionQueue.length === 0) {
             this.state = GAME_STATES.IDLE;
             this.uiManager.updateStateStatus(this.state);
+            // AUTO-FLUSH: Smart Clear
+            if (this.commandQueue.length > 0) {
+                this.commandQueue = [];
+                this.uiExecIndex = 0;
+                this.uiManager.syncTimeline(this.commandQueue);
+            }
         } else {
             this.state = GAME_STATES.EXECUTING;
         }
