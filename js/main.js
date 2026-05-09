@@ -77,6 +77,7 @@ window.onload = () => {
     window.addCommand = (cmd) => game.addCommand(cmd);
     window.executeQueue = () => game.executeQueue();
     window.clearQueue = () => game.clearQueue();
+    window.removeLastCommand = () => { if (game) game.removeLastCommand(); };
     window.resetLevel = () => game.resetLevel();
     window.router = router;
 
